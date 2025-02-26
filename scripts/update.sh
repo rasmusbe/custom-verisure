@@ -42,6 +42,16 @@ else
   echo "Warning: hacs.json not found"
 fi
 
+# Update version in manifest.json
+MANIFEST_FILE="$ROOT_DIR/custom_components/verisure/manifest.json"
+if [ -f "$MANIFEST_FILE" ]; then
+  # Create a temporary file for the new JSON
+  TEMP_JSON=$(mktemp)
+  jq --arg version "$VERSION" '. + {version: $version}' "$MANIFEST_FILE" >"$TEMP_JSON"
+  rm -f "$MANIFEST_FILE"
+  mv "$TEMP_JSON" "$MANIFEST_FILE"
+fi
+
 # Clean up
 rm -rf "$TEMP_DIR"
 
