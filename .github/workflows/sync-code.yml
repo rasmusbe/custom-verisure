@@ -36,4 +36,8 @@ jobs:
       - name: Create Github Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "${{ env.HOMEASSISTANT_VERSION }}" --latest --generate-notes --title "${{ env.HOMEASSISTANT_VERSION }}"
+        run: |
+          if gh release view "${{ env.HOMEASSISTANT_VERSION }}" &>/dev/null; then
+            gh release delete "${{ env.HOMEASSISTANT_VERSION }}" --yes
+          fi
+          gh release create "${{ env.HOMEASSISTANT_VERSION }}" --latest --generate-notes --title "${{ env.HOMEASSISTANT_VERSION }}"
