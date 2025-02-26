@@ -11,11 +11,6 @@
   "documentation": "https://www.home-assistant.io/integrations/verisure",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "loggers": [
-    "verisure"
-  ],
-  "requirements": [
-    "vsure==2.6.7"
-  ],
-  "version": "2025.2.5"
+  "loggers": ["verisure"],
+  "requirements": ["vsure==2.6.7"]
 }

@@ -24,16 +24,23 @@ jobs:
           ./scripts/update.sh
 
       - name: Commit new changes
+        id: commit
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add custom_components/verisure
-          git diff --staged --exit-code && echo "No changes to the verisure component code on this run; exiting." && exit 0 || true
-          git commit -nm "Update Verisure component code"
-          git tag -f "${{ env.HOMEASSISTANT_VERSION }}"
-          git push --tags -f
+          if ! git diff --staged --quiet; then
+            git commit -nm "Update Verisure component code"
+            git tag -f "${{ env.HOMEASSISTANT_VERSION }}"
+            git push --tags -f
+            echo "changes_made=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No changes to the verisure component code on this run; exiting."
+            echo "changes_made=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create Github Release
+        if: steps.commit.outputs.changes_made == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
