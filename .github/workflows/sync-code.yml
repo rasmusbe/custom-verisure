@@ -2,7 +2,7 @@ name: "Sync Verisure Component Code"
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 12 * * 2"
+    - cron: "0 12 * * *"
 
 env:
   NODE_VERSION: 20
