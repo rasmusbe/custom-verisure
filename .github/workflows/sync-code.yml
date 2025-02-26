@@ -22,7 +22,6 @@ jobs:
       - name: Update Verisure Component Code
         run: |
           ./scripts/update.sh
-          echo "HOMEASSISTANT_VERSION=$(echo $HOMEASSISTANT_VERSION)" >> $GITHUB_ENV
 
       - name: Commit new changes
         run: |
@@ -31,10 +30,10 @@ jobs:
           git add custom_components/verisure
           git diff --staged --exit-code && echo "No changes to the verisure component code on this run; exiting." && exit 0 || true
           git commit -nm "Update Verisure component code"
-          git tag "v${{ env.HOMEASSISTANT_VERSION }}"
-          git push
+          git tag "${{ env.HOMEASSISTANT_VERSION }}"
+          git push --tags
 
       - name: Create Github Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "v${{ env.HOMEASSISTANT_VERSION }}" --latest --generate-notes --title "v${{ env.HOMEASSISTANT_VERSION }}"
+        run: gh release create "${{ env.HOMEASSISTANT_VERSION }}" --latest --generate-notes --title "${{ env.HOMEASSISTANT_VERSION }}"

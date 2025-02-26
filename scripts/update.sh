@@ -4,7 +4,13 @@ ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 TEMP_DIR=$(mktemp -d)
 
 # Clone only the latest commit (--depth 1) to save time and bandwidth
-git clone --depth 1 --branch master https://github.com/home-assistant/core.git "$TEMP_DIR"
+git clone --depth 1 --branch master https://github.com/home-assistant/core.git "$TEMP_DIR" >/dev/null 2>&1 || {
+  echo "Error: Failed to clone Home Assistant repository"
+  exit 1
+}
+
+# Remove the verisure component if it exists
+rm -rf "$ROOT_DIR/custom_components/verisure"
 
 # Make sure the custom components directory exists
 mkdir -p "$ROOT_DIR/custom_components"
@@ -14,17 +20,19 @@ cp -r "$TEMP_DIR/homeassistant/components/verisure" "$ROOT_DIR/custom_components
 
 # Get version from core
 VERSION=$(grep -E "^(MAJOR|MINOR|PATCH)_VERSION" "$TEMP_DIR/homeassistant/const.py" | cut -d'=' -f2 | tr -d ' "' | tr '\n' '.' | sed 's/\.$//')
-echo "Core version: $VERSION"
 
-# Export the version
+# Export the version to global environment
 export HOMEASSISTANT_VERSION=$VERSION
+
+# Export the version to GitHub Actions environment if GITHUB_ENV is set
+if [ -n "$GITHUB_ENV" ]; then
+  echo "HOMEASSISTANT_VERSION=$HOMEASSISTANT_VERSION" >>"$GITHUB_ENV"
+fi
 
 # Clean up
 rm -rf "$TEMP_DIR"
 
-# Debug: Print file path and check if it exists
 CONST_FILE="$ROOT_DIR/custom_components/verisure/const.py"
-echo "Checking file: $CONST_FILE"
 if [ ! -f "$CONST_FILE" ]; then
   echo "Error: $CONST_FILE does not exist!"
   exit 1
