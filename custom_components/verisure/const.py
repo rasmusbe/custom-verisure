@@ -1,7 +1,7 @@
 """Constants for the Verisure integration."""
 
-from datetime import timedelta
 import logging
+from datetime import timedelta
 
 from homeassistant.components.alarm_control_panel import AlarmControlPanelState
 
@@ -13,7 +13,7 @@ CONF_GIID = "giid"
 CONF_LOCK_CODE_DIGITS = "lock_code_digits"
 CONF_LOCK_DEFAULT_CODE = "lock_default_code"
 
-DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)
+DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)
 DEFAULT_LOCK_CODE_DIGITS = 4
 
 SERVICE_CAPTURE_SMARTCAM = "capture_smartcam"

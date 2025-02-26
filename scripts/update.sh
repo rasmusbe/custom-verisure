@@ -54,8 +54,8 @@ fi
 # Patch const.py to have tighter interval - compatible with both Linux and macOS
 if [[ "$OSTYPE" == "darwin"* ]]; then
   # macOS requires an extension argument for -i
-  sed -i '' "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)/" "$CONST_FILE"
+  sed -i '' "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)/" "$CONST_FILE"
 else
   # Linux version
-  sed -i "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)/" "$CONST_FILE"
+  sed -i "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)/" "$CONST_FILE"
 fi
