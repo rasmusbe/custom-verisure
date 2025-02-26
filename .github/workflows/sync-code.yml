@@ -30,8 +30,8 @@ jobs:
           git add custom_components/verisure
           git diff --staged --exit-code && echo "No changes to the verisure component code on this run; exiting." && exit 0 || true
           git commit -nm "Update Verisure component code"
-          git tag "${{ env.HOMEASSISTANT_VERSION }}"
-          git push --tags
+          git tag -f "${{ env.HOMEASSISTANT_VERSION }}"
+          git push --tags -f
 
       - name: Create Github Release
         env:
