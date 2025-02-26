@@ -1,5 +1,24 @@
 #!/bin/bash
 
+# Exit on error
+set -e
+
+# Function for cleanup
+cleanup() {
+  local exit_code=$?
+  echo "Performing cleanup..."
+  [ -d "$TEMP_DIR" ] && rm -rf "$TEMP_DIR"
+  exit $exit_code
+}
+
+# Set trap for cleanup
+trap cleanup EXIT
+
+# Function for logging
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
 ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 TEMP_DIR=$(mktemp -d)
 ORIGINAL_FILES_DIR="$ROOT_DIR/original_files"
@@ -8,27 +27,36 @@ ORIGINAL_FILES_DIR="$ROOT_DIR/original_files"
 mkdir -p "$ORIGINAL_FILES_DIR"
 
 # Clone only the latest commit (--depth 1) to save time and bandwidth
-echo "Cloning Home Assistant repository..."
-git clone --depth 1 --branch master https://github.com/home-assistant/core.git "$TEMP_DIR" >/dev/null 2>&1 || {
-  echo "Error: Failed to clone Home Assistant repository"
+log "Cloning Home Assistant repository..."
+if ! git clone --depth 1 --branch master https://github.com/home-assistant/core.git "$TEMP_DIR" >/dev/null 2>&1; then
+  log "Error: Failed to clone Home Assistant repository"
   exit 1
-}
-echo "Home Assistant repository cloned successfully"
+fi
+log "Home Assistant repository cloned successfully"
 
 # Get version from core
-VERSION=$(grep -E "^(MAJOR|MINOR|PATCH)_VERSION" "$TEMP_DIR/homeassistant/const.py" | cut -d'=' -f2 | tr -d ' "' | tr '\n' '.' | sed 's/\.$//')
+if ! VERSION=$(grep -E "^(MAJOR|MINOR|PATCH)_VERSION" "$TEMP_DIR/homeassistant/const.py" | cut -d'=' -f2 | tr -d ' "' | tr '\n' '.' | sed 's/\.$//'); then
+  log "Error: Failed to extract version information"
+  exit 1
+fi
 
 # Export the version to global environment
 export HOMEASSISTANT_VERSION=$VERSION
+log "Detected Home Assistant version: $VERSION"
 
 # Export the version to GitHub Actions environment if GITHUB_ENV is set
 if [ -n "$GITHUB_ENV" ]; then
   echo "HOMEASSISTANT_VERSION=$HOMEASSISTANT_VERSION" >>"$GITHUB_ENV"
+  log "Version exported to GitHub Actions environment"
 fi
 
 # Function to store original files
 store_original_files() {
-  echo "Storing original unpatched files..."
+  log "Storing original unpatched files..."
+  if [ ! -f "$TEMP_DIR/homeassistant/components/verisure/const.py" ] || [ ! -f "$TEMP_DIR/homeassistant/components/verisure/manifest.json" ]; then
+    log "Error: Source files not found in cloned repository"
+    exit 1
+  fi
   rm -f "$ORIGINAL_FILES_DIR/const.py" "$ORIGINAL_FILES_DIR/manifest.json"
   cp "$TEMP_DIR/homeassistant/components/verisure/const.py" "$ORIGINAL_FILES_DIR/const.py"
   cp "$TEMP_DIR/homeassistant/components/verisure/manifest.json" "$ORIGINAL_FILES_DIR/manifest.json"
@@ -105,27 +133,37 @@ fi
 # Update version in manifest.json
 MANIFEST_FILE="$ROOT_DIR/custom_components/verisure/manifest.json"
 if [ -f "$MANIFEST_FILE" ]; then
+  log "Updating version in manifest.json..."
   # Create a temporary file for the new JSON
   TEMP_JSON=$(mktemp)
-  jq --arg version "$VERSION" '. + {version: $version}' "$MANIFEST_FILE" >"$TEMP_JSON"
+  if ! jq --arg version "$VERSION" '. + {version: $version}' "$MANIFEST_FILE" >"$TEMP_JSON"; then
+    log "Error: Failed to update manifest.json"
+    exit 1
+  fi
   rm -f "$MANIFEST_FILE"
   mv "$TEMP_JSON" "$MANIFEST_FILE"
 fi
 
-# Clean up
-rm -rf "$TEMP_DIR"
-
 CONST_FILE="$ROOT_DIR/custom_components/verisure/const.py"
 if [ ! -f "$CONST_FILE" ]; then
-  echo "Error: $CONST_FILE does not exist!"
+  log "Error: $CONST_FILE does not exist!"
   exit 1
 fi
 
 # Patch const.py to have tighter interval - compatible with both Linux and macOS
+log "Updating scan interval in const.py..."
 if [[ "$OSTYPE" == "darwin"* ]]; then
   # macOS requires an extension argument for -i
-  sed -i '' "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)/" "$CONST_FILE"
+  if ! sed -i '' "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)/" "$CONST_FILE"; then
+    log "Error: Failed to update scan interval"
+    exit 1
+  fi
 else
   # Linux version
-  sed -i "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)/" "$CONST_FILE"
+  if ! sed -i "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)/" "$CONST_FILE"; then
+    log "Error: Failed to update scan interval"
+    exit 1
+  fi
 fi
+
+log "Update completed successfully"
