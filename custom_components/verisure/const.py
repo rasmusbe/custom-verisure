@@ -1,7 +1,7 @@
 """Constants for the Verisure integration."""
 
-import logging
 from datetime import timedelta
+import logging
 
 from homeassistant.components.alarm_control_panel import AlarmControlPanelState
 
