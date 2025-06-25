@@ -23,6 +23,12 @@ ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 TEMP_DIR=$(mktemp -d)
 ORIGINAL_FILES_DIR="$ROOT_DIR/original_files"
 
+# Check if jq is installed
+if ! command -v jq >/dev/null 2>&1; then
+  log "Error: jq is required but not installed. Please install it to update JSON files."
+  exit 1
+fi
+
 # Ensure original_files directory exists
 mkdir -p "$ORIGINAL_FILES_DIR"
 
@@ -90,10 +96,39 @@ check_component_changes() {
   fi
 
   rm -rf "$COMP_DIR"
-  # Return 0 if we have changes, 1 if we don't
+  # Return 1 if we have changes, 0 if we don't
   [ $has_changes -eq 1 ]
   return $?
 }
+
+# Apply patches from patches directory
+apply_patches() {
+  log "Applying patches..."
+  cd "$TEMP_DIR/homeassistant/components"
+
+  # Only use regenerated patches
+  if [ ! -d "$ROOT_DIR/regenerated_patches" ] || [ ! "$(ls -A "$ROOT_DIR/regenerated_patches"/*.patch 2>/dev/null)" ]; then
+    log "Error: No regenerated patches found. Please run ./scripts/regenerate_patch.sh first"
+    exit 1
+  fi
+
+  PATCH_DIR="$ROOT_DIR/regenerated_patches"
+  log "Using regenerated patches from $PATCH_DIR"
+
+  for patch in "$PATCH_DIR"/*.patch; do
+    if [ -f "$patch" ]; then
+      log "Applying patch: $patch"
+      if ! git apply "$patch"; then
+        log "Error: Failed to apply patch $patch"
+        exit 1
+      fi
+    fi
+  done
+  cd "$ROOT_DIR"
+}
+
+# Apply patches to the upstream component before comparison
+apply_patches
 
 # Check if component exists and if there are changes
 if [ -d "$ROOT_DIR/custom_components/verisure" ]; then
@@ -122,7 +157,10 @@ cp -r "$TEMP_DIR/homeassistant/components/verisure" "$ROOT_DIR/custom_components
 # Update the homeassistant version in hacs.json using jq
 if [ -f "$ROOT_DIR/hacs.json" ]; then
   # Create a temporary file for the new JSON
-  TEMP_JSON=$(mktemp)
+  TEMP_JSON=$(mktemp) || {
+    log "Error: Failed to create temporary file"
+    exit 1
+  }
   jq --arg version "$VERSION" '.homeassistant = $version' "$ROOT_DIR/hacs.json" >"$TEMP_JSON"
   rm -f "$ROOT_DIR/hacs.json"
   mv "$TEMP_JSON" "$ROOT_DIR/hacs.json"
