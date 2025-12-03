@@ -1,0 +1,25 @@
+From 08bf4d2f51559c8bbcccf02ed0180383389686a5 Mon Sep 17 00:00:00 2001
+From: Rasmus Graham <2124386+rasmusbe@users.noreply.github.com>
+Date: Wed, 3 Dec 2025 14:27:54 +0100
+Subject: [PATCH] Maybe prevent auth errors on timeout
+
+---
+ homeassistant/components/verisure/coordinator.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/homeassistant/components/verisure/coordinator.py b/homeassistant/components/verisure/coordinator.py
+index 5165ddc..e05852f 100644
+--- a/homeassistant/components/verisure/coordinator.py
++++ b/homeassistant/components/verisure/coordinator.py
+@@ -78,7 +78,7 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
+                 raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
+             except VerisureError as ex:
+                 LOGGER.error("Could not log in to verisure, %s", ex)
+-                raise ConfigEntryAuthFailed("Could not log in to verisure") from ex
++                raise UpdateFailed("Could not log in to verisure") from ex
+         except VerisureError as ex:
+             raise UpdateFailed("Unable to update cookie") from ex
+         try:
+-- 
+2.50.1
+

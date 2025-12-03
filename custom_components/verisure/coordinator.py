@@ -78,7 +78,7 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
                 raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
             except VerisureError as ex:
                 LOGGER.error("Could not log in to verisure, %s", ex)
-                raise ConfigEntryAuthFailed("Could not log in to verisure") from ex
+                raise UpdateFailed("Could not log in to verisure") from ex
         except VerisureError as ex:
             raise UpdateFailed("Unable to update cookie") from ex
         try:
