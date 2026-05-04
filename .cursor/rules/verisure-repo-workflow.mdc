@@ -1,0 +1,21 @@
+---
+description: Verisure custom integration repo — upstream sync workflow and where edits belong
+alwaysApply: true
+---
+
+# Repo workflow
+
+This repository ships Home Assistant’s core **Verisure** integration as a **custom component** under `custom_components/verisure/`. The tree is refreshed from [home-assistant/core](https://github.com/home-assistant/core), not authored standalone.
+
+## Pipeline
+
+1. **Source patches** live in `patches/` (diff paths use `custom_components/verisure/`).
+2. Run `./scripts/regenerate_patch.sh` to rewrite paths into `regenerated_patches/` (`homeassistant/components/verisure/` for `git apply`).
+3. `./scripts/update.sh` clones core, applies `regenerated_patches/*.patch`, copies `homeassistant/components/verisure` → `custom_components/verisure/`, updates `hacs.json` and `manifest.json`, and adjusts scan interval in `const.py`.
+
+CI (`.github/workflows/sync-code.yml`) runs `update.sh` and commits **`custom_components/verisure` only**. It does **not** commit patch changes—keep `patches/` and `regenerated_patches/` in sync in PRs.
+
+## Editing guidance
+
+- **Lasting divergences from upstream**: implement via **`patches/`** + regenerate, not only by editing `custom_components/` (the next sync can overwrite unpatched files).
+- **Ephemeral edits** under `custom_components/` without a matching patch are fragile.

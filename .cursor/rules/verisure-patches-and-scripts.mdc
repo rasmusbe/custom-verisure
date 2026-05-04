@@ -1,0 +1,21 @@
+---
+description: Patch layout under patches/, regenerate_patch.sh, and update.sh expectations
+globs: patches/**/*.patch,scripts/**/*.sh
+alwaysApply: false
+---
+
+# Patches and scripts
+
+## Patch format
+
+- Unifies paths as **`custom_components/verisure/`** inside `.patch` files under `patches/` (see existing patches).
+- **`regenerated_patches/`** is produced by `./scripts/regenerate_patch.sh`; do **not** hand-edit unless unavoidable—fix `patches/` and regenerate.
+
+## After changing `patches/*.patch`
+
+1. Run `./scripts/regenerate_patch.sh`.
+2. When possible, run `./scripts/update.sh` locally to confirm patches apply (`jq`, `git`, network clone).
+
+## Scripts
+
+- `update.sh` requires **`jq`** and clones **`home-assistant/core`** (branch `master`, shallow).
