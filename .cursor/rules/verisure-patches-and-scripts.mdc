@@ -9,12 +9,11 @@ alwaysApply: false
 ## Patch format
 
 - Unifies paths as **`custom_components/verisure/`** inside `.patch` files under `patches/` (see existing patches).
-- **`regenerated_patches/`** is produced by `./scripts/regenerate_patch.sh`; do **not** hand-edit unless unavoidable—fix `patches/` and regenerate.
+- **`regenerated_patches/`** is **gitignored**. It is created by `./scripts/regenerate_patch.sh` and **`update.sh` runs that step automatically** before `git apply`. Do not commit it; edit **`patches/`** only.
 
 ## After changing `patches/*.patch`
 
-1. Run `./scripts/regenerate_patch.sh`.
-2. When possible, run `./scripts/update.sh` locally to confirm patches apply (`jq`, `git`, network clone).
+1. Run `./scripts/update.sh` locally when you can (`jq`, `git`, network clone) — it regenerates patches and verifies they apply. Optional: run `./scripts/regenerate_patch.sh` alone to inspect regenerated files only.
 
 ## Scripts
 

@@ -1,12 +1,13 @@
+# Sync flow (each run): clone latest homeassistant/core Verisure component,
+# regenerate homeassistant path layout from tracked patches/, git apply all
+# patches, copy into custom_components/verisure, then bump HACS/manifest version
+# and scan interval. Upstream owns unpatched lines; commits only custom_components/.
 name: "Sync Verisure Component Code"
 on:
   workflow_dispatch:
   schedule:
     # Run every hour on weekdays
     - cron: "0 * * * 1-5"
-
-env:
-  NODE_VERSION: 20
 
 jobs:
   sync-verisure-component-code:

@@ -7,6 +7,6 @@ alwaysApply: false
 # `custom_components/verisure` Python
 
 - Match **Home Assistant** patterns: async entrypoints, coordinators, typed helpers, platform wiring consistent with core Verisure.
-- Changes that must **survive** `./scripts/update.sh` should live in **`patches/`** (plus `./scripts/regenerate_patch.sh`), not only as direct edits here—sync replaces files from upstream unless patched.
+- Changes that must **survive** `./scripts/update.sh` should live in **`patches/`**, not only as direct edits here—sync replaces files from upstream unless patched.
 
 Keep **`manifest.json`** and **`hacs.json`** aligned with Home Assistant versioning when adjusting compatibility (`requirements`, documented HA version).

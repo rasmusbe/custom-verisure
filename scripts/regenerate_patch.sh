@@ -3,6 +3,7 @@ set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PATCHES_DIR="$ROOT_DIR/patches"
+# Generated layout for git apply onto homeassistant/core (gitignored; update.sh invokes this automatically)
 REGENERATED_PATCHES_DIR="$ROOT_DIR/regenerated_patches"
 
 mkdir -p "$REGENERATED_PATCHES_DIR"

@@ -101,14 +101,19 @@ check_component_changes() {
   return $?
 }
 
-# Apply patches from patches directory
+# Apply patches from patches directory (regenerates path layout first — not tracked in git)
 apply_patches() {
+  log "Rewriting patches/ paths for homeassistant/component layout..."
+  if ! "$ROOT_DIR/scripts/regenerate_patch.sh"; then
+    log "Error: regenerate_patch.sh failed"
+    exit 1
+  fi
+
   log "Applying patches..."
   cd "$TEMP_DIR/homeassistant/components"
 
-  # Only use regenerated patches
   if [ ! -d "$ROOT_DIR/regenerated_patches" ] || [ ! "$(ls -A "$ROOT_DIR/regenerated_patches"/*.patch 2>/dev/null)" ]; then
-    log "Error: No regenerated patches found. Please run ./scripts/regenerate_patch.sh first"
+    log "Error: No .patch files in patches/. Nothing to apply."
     exit 1
   fi
 

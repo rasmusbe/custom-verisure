@@ -2,3 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Ephemeral apply layout (generated from patches/ by update.sh / regenerate_patch.sh)
+regenerated_patches/

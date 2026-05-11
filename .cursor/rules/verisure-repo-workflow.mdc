@@ -9,13 +9,12 @@ This repository ships Home Assistant’s core **Verisure** integration as a **cu
 
 ## Pipeline
 
-1. **Source patches** live in `patches/` (diff paths use `custom_components/verisure/`).
-2. Run `./scripts/regenerate_patch.sh` to rewrite paths into `regenerated_patches/` (`homeassistant/components/verisure/` for `git apply`).
-3. `./scripts/update.sh` clones core, applies `regenerated_patches/*.patch`, copies `homeassistant/components/verisure` → `custom_components/verisure/`, updates `hacs.json` and `manifest.json`, and adjusts scan interval in `const.py`.
+1. **Tracked patches** live in `patches/` (diff paths use `custom_components/verisure/`).
+2. `./scripts/update.sh` rewrites paths into **`regenerated_patches/`** (gitignored), applies those patches onto a shallow clone of [home-assistant/core](https://github.com/home-assistant/core), copies `homeassistant/components/verisure` → `custom_components/verisure/`, updates `hacs.json` and `manifest.json`, and adjusts scan interval in `const.py`. Run `./scripts/regenerate_patch.sh` alone only if you want the regenerated files without a full sync.
 
-CI (`.github/workflows/sync-code.yml`) runs `update.sh` and commits **`custom_components/verisure` only**. It does **not** commit patch changes—keep `patches/` and `regenerated_patches/` in sync in PRs.
+CI (`.github/workflows/sync-code.yml`) runs `./scripts/update.sh` and commits **`custom_components/verisure` only**. Commit **`patches/`** changes in PRs when you intend to change durable behavior (`regenerated_patches/` is not versioned).
 
 ## Editing guidance
 
-- **Lasting divergences from upstream**: implement via **`patches/`** + regenerate, not only by editing `custom_components/` (the next sync can overwrite unpatched files).
+- **Lasting divergences from upstream**: implement via **`patches/`** (then run `./scripts/update.sh` locally to verify), not only by editing `custom_components/` (the next sync can overwrite unpatched files).
 - **Ephemeral edits** under `custom_components/` without a matching patch are fragile.

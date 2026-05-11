@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# postToolUse: after tools that write patches/, remind to regenerate regenerated_patches/.
+# postToolUse: after tools that write patches/, remind to run update locally.
 set -euo pipefail
 
 input=""
@@ -60,7 +60,7 @@ case "$tool_lower" in
     ;;
 esac
 
-msg="Patch source updated (${path}). Run ./scripts/regenerate_patch.sh so regenerated_patches/ matches patches/. Optionally run ./scripts/update.sh (needs jq, git, network) to confirm patches apply."
+msg="Patch source updated (${path}). Run ./scripts/update.sh locally when you can (jq, git, network) so patches regenerate and apply cleanly. Optional: ./scripts/regenerate_patch.sh only inspects regenerated_patches/."
 
 if command -v jq >/dev/null 2>&1; then
   jq -n --arg ctx "$msg" '{additional_context: $ctx}'
