@@ -1,0 +1,188 @@
+diff --git a/custom_components/verisure/coordinator.py b/custom_components/verisure/coordinator.py
+index 6152752..25132af 100644
+--- a/custom_components/verisure/coordinator.py
++++ b/custom_components/verisure/coordinator.py
+@@ -2,13 +2,16 @@
+ 
+ from __future__ import annotations
+ 
++import asyncio
+ from datetime import timedelta
+ from time import sleep
+ 
+-from verisure import (
+-    Error as VerisureError,
+-    LoginError as VerisureLoginError,
+-    Session as Verisure,
++import requests.exceptions
++
++from verisure import Error as VerisureError, LoginError as VerisureLoginError
++from verisure.session import (
++    RequestError as VerisureRequestError,
++    ResponseError as VerisureResponseError,
+ )
+ 
+ from homeassistant.config_entries import ConfigEntry
+@@ -20,8 +23,28 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
+ from homeassistant.util import Throttle
+ 
+ from .const import CONF_GIID, DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER
++from .session import VerisureHydratedSession
+ 
+-type VerisureConfigEntry = ConfigEntry[VerisureDataUpdateCoordinator]
++type VerisureConfigEntry = ConfigEntry["VerisureDataUpdateCoordinator"]
++
++_COOKIE_REFRESH_ATTEMPTS = 3
++_RETRY_DELAY_SEC = 1.0
++
++
++def _is_transient_verisure_failure(exc: BaseException) -> bool:
++    """True when the exception chain looks like network, 5xx, or local I/O — not bad password."""
++    seen: set[int] = set()
++    chain: BaseException | None = exc
++    while chain is not None and id(chain) not in seen:
++        seen.add(id(chain))
++        if isinstance(chain, (VerisureRequestError, VerisureResponseError)):
++            return True
++        if isinstance(chain, requests.exceptions.RequestException):
++            return True
++        if isinstance(chain, OSError):
++            return True
++        chain = chain.__cause__
++    return False
+ 
+ 
+ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
+@@ -34,7 +57,7 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
+         self.imageseries: list[dict[str, str]] = []
+         self._overview: list[dict] = []
+ 
+-        self.verisure = Verisure(
++        self.verisure = VerisureHydratedSession(
+             username=entry.data[CONF_EMAIL],
+             password=entry.data[CONF_PASSWORD],
+             cookie_file_name=hass.config.path(
+@@ -55,6 +78,12 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
+         try:
+             await self.hass.async_add_executor_job(self.verisure.login_cookie)
+         except VerisureLoginError as ex:
++            if _is_transient_verisure_failure(ex):
++                LOGGER.warning(
++                    "Verisure login unavailable (likely transient network or storage), %s",
++                    ex,
++                )
++                return False
+             LOGGER.error("Credentials expired for Verisure, %s", ex)
+             raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
+         except VerisureError as ex:
+@@ -69,20 +98,50 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
+ 
+     async def _async_update_data(self) -> dict:
+         """Fetch data from Verisure."""
+-        try:
+-            await self.hass.async_add_executor_job(self.verisure.update_cookie)
+-        except VerisureLoginError:
++        last_login_error: VerisureLoginError | None = None
++        cookie_refreshed = False
++        for attempt in range(_COOKIE_REFRESH_ATTEMPTS):
++            try:
++                await self.hass.async_add_executor_job(self.verisure.update_cookie)
++                cookie_refreshed = True
++                break
++            except (VerisureRequestError, VerisureResponseError) as ex:
++                LOGGER.warning(
++                    "Verisure unreachable or server error during cookie refresh, %s", ex
++                )
++                raise UpdateFailed("Unable to update cookie — Verisure unreachable") from ex
++            except VerisureLoginError as ex:
++                last_login_error = ex
++                if attempt + 1 < _COOKIE_REFRESH_ATTEMPTS:
++                    LOGGER.debug(
++                        "Cookie refresh login error attempt %s, retrying: %s",
++                        attempt + 1,
++                        ex,
++                    )
++                    await asyncio.sleep(_RETRY_DELAY_SEC)
++                    continue
++
++        if not cookie_refreshed:
++            assert last_login_error is not None
+             LOGGER.debug("Cookie expired, acquiring new cookies")
+             try:
+                 await self.hass.async_add_executor_job(self.verisure.login_cookie)
+             except VerisureLoginError as ex:
++                if _is_transient_verisure_failure(ex):
++                    LOGGER.warning(
++                        "Verisure session refresh failed (transient), %s",
++                        ex,
++                    )
++                    raise UpdateFailed(
++                        "Could not refresh Verisure session (transient)"
++                    ) from ex
+                 LOGGER.error("Credentials expired for Verisure, %s", ex)
+-                raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
++                raise ConfigEntryAuthFailed(
++                    "Credentials expired for Verisure"
++                ) from ex
+             except VerisureError as ex:
+                 LOGGER.error("Could not log in to verisure, %s", ex)
+-                raise ConfigEntryAuthFailed("Could not log in to verisure") from ex
+-        except VerisureError as ex:
+-            raise UpdateFailed("Unable to update cookie") from ex
++                raise UpdateFailed("Could not log in to verisure") from ex
+         try:
+             overview = await self.hass.async_add_executor_job(
+                 self.verisure.request,
+diff --git a/custom_components/verisure/session.py b/custom_components/verisure/session.py
+new file mode 100644
+index 0000000..5c0804c
+--- /dev/null
++++ b/custom_components/verisure/session.py
+@@ -0,0 +1,25 @@
++"""Verisure Session with persisted cookie hydrate before refresh."""
++
++from __future__ import annotations
++
++import pickle
++
++from verisure import LoginError
++from verisure.session import Session as VerisureSessionBase
++
++
++class VerisureHydratedSession(VerisureSessionBase):
++    """Load cookies from disk when in-memory jars are unset (avoids empty /auth/token)."""
++
++    def update_cookie(self) -> None:
++        """Refresh auth token cookie, loading from file if `_cookies` is unset."""
++        if self._cookies is None:
++            self._load_persisted_cookies()
++        super().update_cookie()
++
++    def _load_persisted_cookies(self) -> None:
++        try:
++            with open(self._cookie_file_name, "rb") as cookie_file:
++                self._cookies = pickle.load(cookie_file)
++        except Exception as ex:
++            raise LoginError("Failed to read cookie") from ex
+diff --git a/custom_components/verisure/config_flow.py b/custom_components/verisure/config_flow.py
+index 6b4c42c..3d1d686 100644
+--- a/custom_components/verisure/config_flow.py
++++ b/custom_components/verisure/config_flow.py
+@@ -9,8 +9,8 @@ from verisure import (
+     Error as VerisureError,
+     LoginError as VerisureLoginError,
+     ResponseError as VerisureResponseError,
+-    Session as Verisure,
+ )
++
+ import voluptuous as vol
+ 
+ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
+@@ -26,6 +26,7 @@ from .const import (
+     LOGGER,
+ )
+ from .coordinator import VerisureConfigEntry
++from .session import VerisureHydratedSession as Verisure
+ 
+ 
+ class VerisureConfigFlowHandler(ConfigFlow, domain=DOMAIN):
