@@ -9,8 +9,8 @@ from verisure import (
     Error as VerisureError,
     LoginError as VerisureLoginError,
     ResponseError as VerisureResponseError,
+    Session as Verisure,
 )
-
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
@@ -26,7 +26,6 @@ from .const import (
     LOGGER,
 )
 from .coordinator import VerisureConfigEntry
-from .session import VerisureHydratedSession as Verisure
 
 
 class VerisureConfigFlowHandler(ConfigFlow, domain=DOMAIN):

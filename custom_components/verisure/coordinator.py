@@ -8,10 +8,12 @@ from time import sleep
 
 import requests.exceptions
 
-from verisure import Error as VerisureError, LoginError as VerisureLoginError
-from verisure.session import (
+from verisure import (
+    Error as VerisureError,
+    LoginError as VerisureLoginError,
     RequestError as VerisureRequestError,
     ResponseError as VerisureResponseError,
+    Session as Verisure,
 )
 
 from homeassistant.config_entries import ConfigEntry
@@ -23,7 +25,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import Throttle
 
 from .const import CONF_GIID, DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER
-from .session import VerisureHydratedSession
 
 type VerisureConfigEntry = ConfigEntry["VerisureDataUpdateCoordinator"]
 
@@ -57,7 +58,7 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
         self.imageseries: list[dict[str, str]] = []
         self._overview: list[dict] = []
 
-        self.verisure = VerisureHydratedSession(
+        self.verisure = Verisure(
             username=entry.data[CONF_EMAIL],
             password=entry.data[CONF_PASSWORD],
             cookie_file_name=hass.config.path(

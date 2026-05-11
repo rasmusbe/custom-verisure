@@ -1,8 +1,8 @@
 diff --git a/custom_components/verisure/coordinator.py b/custom_components/verisure/coordinator.py
-index 6152752..25132af 100644
+index 6152752..872db33 100644
 --- a/custom_components/verisure/coordinator.py
 +++ b/custom_components/verisure/coordinator.py
-@@ -2,13 +2,16 @@
+@@ -2,12 +2,17 @@
  
  from __future__ import annotations
  
@@ -10,24 +10,19 @@ index 6152752..25132af 100644
  from datetime import timedelta
  from time import sleep
  
--from verisure import (
--    Error as VerisureError,
--    LoginError as VerisureLoginError,
--    Session as Verisure,
 +import requests.exceptions
 +
-+from verisure import Error as VerisureError, LoginError as VerisureLoginError
-+from verisure.session import (
+ from verisure import (
+     Error as VerisureError,
+     LoginError as VerisureLoginError,
 +    RequestError as VerisureRequestError,
 +    ResponseError as VerisureResponseError,
+     Session as Verisure,
  )
  
- from homeassistant.config_entries import ConfigEntry
-@@ -20,8 +23,28 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
- from homeassistant.util import Throttle
+@@ -21,7 +26,26 @@ from homeassistant.util import Throttle
  
  from .const import CONF_GIID, DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER
-+from .session import VerisureHydratedSession
  
 -type VerisureConfigEntry = ConfigEntry[VerisureDataUpdateCoordinator]
 +type VerisureConfigEntry = ConfigEntry["VerisureDataUpdateCoordinator"]
@@ -53,16 +48,7 @@ index 6152752..25132af 100644
  
  
  class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
-@@ -34,7 +57,7 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
-         self.imageseries: list[dict[str, str]] = []
-         self._overview: list[dict] = []
- 
--        self.verisure = Verisure(
-+        self.verisure = VerisureHydratedSession(
-             username=entry.data[CONF_EMAIL],
-             password=entry.data[CONF_PASSWORD],
-             cookie_file_name=hass.config.path(
-@@ -55,6 +78,12 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
+@@ -55,6 +79,12 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
          try:
              await self.hass.async_add_executor_job(self.verisure.login_cookie)
          except VerisureLoginError as ex:
@@ -75,7 +61,7 @@ index 6152752..25132af 100644
              LOGGER.error("Credentials expired for Verisure, %s", ex)
              raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
          except VerisureError as ex:
-@@ -69,20 +98,50 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
+@@ -69,20 +99,50 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
  
      async def _async_update_data(self) -> dict:
          """Fetch data from Verisure."""
@@ -133,56 +119,14 @@ index 6152752..25132af 100644
          try:
              overview = await self.hass.async_add_executor_job(
                  self.verisure.request,
-diff --git a/custom_components/verisure/session.py b/custom_components/verisure/session.py
-new file mode 100644
-index 0000000..5c0804c
---- /dev/null
-+++ b/custom_components/verisure/session.py
-@@ -0,0 +1,25 @@
-+"""Verisure Session with persisted cookie hydrate before refresh."""
-+
-+from __future__ import annotations
-+
-+import pickle
-+
-+from verisure import LoginError
-+from verisure.session import Session as VerisureSessionBase
-+
-+
-+class VerisureHydratedSession(VerisureSessionBase):
-+    """Load cookies from disk when in-memory jars are unset (avoids empty /auth/token)."""
-+
-+    def update_cookie(self) -> None:
-+        """Refresh auth token cookie, loading from file if `_cookies` is unset."""
-+        if self._cookies is None:
-+            self._load_persisted_cookies()
-+        super().update_cookie()
-+
-+    def _load_persisted_cookies(self) -> None:
-+        try:
-+            with open(self._cookie_file_name, "rb") as cookie_file:
-+                self._cookies = pickle.load(cookie_file)
-+        except Exception as ex:
-+            raise LoginError("Failed to read cookie") from ex
-diff --git a/custom_components/verisure/config_flow.py b/custom_components/verisure/config_flow.py
-index 6b4c42c..3d1d686 100644
---- a/custom_components/verisure/config_flow.py
-+++ b/custom_components/verisure/config_flow.py
-@@ -9,8 +9,8 @@ from verisure import (
-     Error as VerisureError,
-     LoginError as VerisureLoginError,
-     ResponseError as VerisureResponseError,
--    Session as Verisure,
- )
-+
- import voluptuous as vol
- 
- from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
-@@ -26,6 +26,7 @@ from .const import (
-     LOGGER,
- )
- from .coordinator import VerisureConfigEntry
-+from .session import VerisureHydratedSession as Verisure
- 
- 
- class VerisureConfigFlowHandler(ConfigFlow, domain=DOMAIN):
+diff --git a/custom_components/verisure/manifest.json b/custom_components/verisure/manifest.json
+index 153b2ba..a8333d0 100644
+--- a/custom_components/verisure/manifest.json
++++ b/custom_components/verisure/manifest.json
+@@ -12,5 +12,5 @@
+   "integration_type": "hub",
+   "iot_class": "cloud_polling",
+   "loggers": ["verisure"],
+-  "requirements": ["vsure==2.6.7"]
++  "requirements": ["vsure @ git+https://github.com/rasmusbe/python-verisure.git@8708843d5c3b6fa66ea2dfa83a8a048a9b2814a9"]
+ }

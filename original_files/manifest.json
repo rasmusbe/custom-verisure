@@ -12,5 +12,5 @@
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "loggers": ["verisure"],
-  "requirements": ["vsure==2.6.7"]
+  "requirements": ["vsure @ git+https://github.com/rasmusbe/python-verisure.git@8708843d5c3b6fa66ea2dfa83a8a048a9b2814a9"]
 }
