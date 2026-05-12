@@ -10,7 +10,7 @@ This repository ships Home Assistant’s core **Verisure** integration as a **cu
 ## Pipeline
 
 1. **Tracked patches** live in `patches/` (diff paths use `custom_components/verisure/`).
-2. `./scripts/update.sh` rewrites paths into **`regenerated_patches/`** (gitignored), applies those patches onto a shallow clone of [home-assistant/core](https://github.com/home-assistant/core), copies `homeassistant/components/verisure` → `custom_components/verisure/`, updates `hacs.json` and `manifest.json`, and adjusts scan interval in `const.py`. Run `./scripts/regenerate_patch.sh` alone only if you want the regenerated files without a full sync.
+2. `./scripts/update.sh` rewrites paths into **`regenerated_patches/`** (gitignored), applies those patches onto a shallow clone of [home-assistant/core](https://github.com/home-assistant/core), copies `homeassistant/components/verisure` → `custom_components/verisure/`, and updates `hacs.json` and `manifest.json`. Run `./scripts/regenerate_patch.sh` alone only if you want the regenerated files without a full sync.
 
 CI (`.github/workflows/sync-code.yml`) runs `./scripts/update.sh` and commits **`custom_components/verisure` only**. Commit **`patches/`** changes in PRs when you intend to change durable behavior (`regenerated_patches/` is not versioned).
 

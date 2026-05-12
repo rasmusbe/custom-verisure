@@ -11,6 +11,11 @@ alwaysApply: false
 - Unifies paths as **`custom_components/verisure/`** inside `.patch` files under `patches/` (see existing patches).
 - **`regenerated_patches/`** is **gitignored**. It is created by `./scripts/regenerate_patch.sh` and **`update.sh` runs that step automatically** before `git apply`. Do not commit it; edit **`patches/`** only.
 
+## Patch order
+
+- Patch files are **`NN-name.patch`** (two-digit prefix, e.g. `01-…`, `02-…`). `update.sh` and `regenerate_patch.sh` apply/process patches in **lexicographic filename order**, so the number defines a stable sequence when patches depend on each other or touch overlapping regions.
+- New patches: pick the next free number; renumber only when you need to change apply order.
+
 ## After changing `patches/*.patch`
 
 1. Run `./scripts/update.sh` locally when you can (`jq`, `git`, network clone) — it regenerates patches and verifies they apply. Optional: run `./scripts/regenerate_patch.sh` alone to inspect regenerated files only.

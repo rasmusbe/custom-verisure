@@ -187,26 +187,4 @@ if [ -f "$MANIFEST_FILE" ]; then
   mv "$TEMP_JSON" "$MANIFEST_FILE"
 fi
 
-CONST_FILE="$ROOT_DIR/custom_components/verisure/const.py"
-if [ ! -f "$CONST_FILE" ]; then
-  log "Error: $CONST_FILE does not exist!"
-  exit 1
-fi
-
-# Patch const.py to have tighter interval - compatible with both Linux and macOS
-log "Updating scan interval in const.py..."
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  # macOS requires an extension argument for -i
-  if ! sed -i '' "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)/" "$CONST_FILE"; then
-    log "Error: Failed to update scan interval"
-    exit 1
-  fi
-else
-  # Linux version
-  if ! sed -i "s/DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)/DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)/" "$CONST_FILE"; then
-    log "Error: Failed to update scan interval"
-    exit 1
-  fi
-fi
-
 log "Update completed successfully"

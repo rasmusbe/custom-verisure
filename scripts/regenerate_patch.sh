@@ -8,6 +8,9 @@ REGENERATED_PATCHES_DIR="$ROOT_DIR/regenerated_patches"
 
 mkdir -p "$REGENERATED_PATCHES_DIR"
 
+# Drop previous outputs so renames/removals in patches/ do not leave stale .patch files.
+find "$REGENERATED_PATCHES_DIR" -maxdepth 1 -name '*.patch' -delete
+
 echo "Rewriting patch paths for all patches in $PATCHES_DIR..."
 
 for patch_file in "$PATCHES_DIR"/*.patch; do
