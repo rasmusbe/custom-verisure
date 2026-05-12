@@ -33,12 +33,25 @@ _COOKIE_REFRESH_ATTEMPTS = 3
 _RETRY_DELAY_SEC = 1.0
 
 
+def _verisure_message_signals_throttle(message: str) -> bool:
+    """True when the API rejected the call for rate / quota limits (not invalid credentials)."""
+    lower = message.lower()
+    return (
+        "aut_00021" in lower
+        or "request limit" in lower
+        or "rate limit" in lower
+        or "too many requests" in lower
+    )
+
+
 def _is_transient_verisure_failure(exc: BaseException) -> bool:
     """True when the exception chain looks like network, 5xx, or local I/O — not bad password."""
     seen: set[int] = set()
     chain: BaseException | None = exc
     while chain is not None and id(chain) not in seen:
         seen.add(id(chain))
+        if _verisure_message_signals_throttle(str(chain)):
+            return True
         if isinstance(chain, (VerisureRequestError, VerisureResponseError)):
             return True
         if isinstance(chain, requests.exceptions.RequestException):
