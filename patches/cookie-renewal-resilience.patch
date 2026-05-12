@@ -1,12 +1,12 @@
 diff --git a/custom_components/verisure/coordinator.py b/custom_components/verisure/coordinator.py
-index 6152752..872db33 100644
 --- a/custom_components/verisure/coordinator.py
 +++ b/custom_components/verisure/coordinator.py
-@@ -2,12 +2,17 @@
+@@ -2,12 +2,18 @@
  
  from __future__ import annotations
  
 +import asyncio
++import re
  from datetime import timedelta
  from time import sleep
  
@@ -20,16 +20,16 @@ index 6152752..872db33 100644
      Session as Verisure,
  )
  
-@@ -21,7 +26,26 @@ from homeassistant.util import Throttle
+@@ -21,9 +27,39 @@
  
  from .const import CONF_GIID, DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER
  
 -type VerisureConfigEntry = ConfigEntry[VerisureDataUpdateCoordinator]
 +type VerisureConfigEntry = ConfigEntry["VerisureDataUpdateCoordinator"]
-+
+ 
 +_COOKIE_REFRESH_ATTEMPTS = 3
 +_RETRY_DELAY_SEC = 1.0
-+
+ 
 +
 +def _is_transient_verisure_failure(exc: BaseException) -> bool:
 +    """True when the exception chain looks like network, 5xx, or local I/O — not bad password."""
@@ -45,23 +45,60 @@ index 6152752..872db33 100644
 +            return True
 +        chain = chain.__cause__
 +    return False
- 
- 
++
++
++def _verisure_response_http_status(exc: VerisureResponseError) -> int | None:
++    """Return HTTP status from ResponseError when available."""
++    code = getattr(exc, "status_code", None)
++    if isinstance(code, int):
++        return code
++    match = re.search(r"status code: (\d+)", str(exc))
++    if match:
++        return int(match.group(1))
++    return None
++
++
  class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
-@@ -55,6 +79,12 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
+     """A Verisure Data Update Coordinator."""
+ 
+@@ -54,9 +90,34 @@
+         """Login to Verisure."""
          try:
              await self.hass.async_add_executor_job(self.verisure.login_cookie)
++        except VerisureResponseError as ex:
++            status = _verisure_response_http_status(ex)
++            if status in (401, 403):
++                raise ConfigEntryAuthFailed(
++                    "Verisure authentication rejected (invalid or expired session)"
++                ) from ex
++            LOGGER.warning(
++                "Verisure login unavailable (likely transient network or storage), %s",
++                ex,
++            )
++            return False
          except VerisureLoginError as ex:
-+            if _is_transient_verisure_failure(ex):
+-            LOGGER.error("Credentials expired for Verisure, %s", ex)
+-            raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
++            if str(ex) == "Failed to read cookie":
++                try:
++                    await self.hass.async_add_executor_job(self.verisure.login)
++                except VerisureError as login_ex:
++                    raise ConfigEntryAuthFailed(
++                        "Verisure re-authentication failed after cookie could not be read"
++                    ) from login_ex
++            elif _is_transient_verisure_failure(ex):
 +                LOGGER.warning(
 +                    "Verisure login unavailable (likely transient network or storage), %s",
 +                    ex,
 +                )
 +                return False
-             LOGGER.error("Credentials expired for Verisure, %s", ex)
-             raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
++            else:
++                LOGGER.error("Credentials expired for Verisure, %s", ex)
++                raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
          except VerisureError as ex:
-@@ -69,20 +99,50 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
+             LOGGER.error("Could not log in to verisure, %s", ex)
+             return False
+@@ -69,20 +130,71 @@
  
      async def _async_update_data(self) -> dict:
          """Fetch data from Verisure."""
@@ -96,8 +133,30 @@ index 6152752..872db33 100644
              LOGGER.debug("Cookie expired, acquiring new cookies")
              try:
                  await self.hass.async_add_executor_job(self.verisure.login_cookie)
++            except VerisureResponseError as ex:
++                status = _verisure_response_http_status(ex)
++                if status in (401, 403):
++                    raise ConfigEntryAuthFailed(
++                        "Verisure authentication rejected (invalid or expired session)"
++                    ) from ex
++                LOGGER.warning(
++                    "Verisure login unavailable (likely transient network or storage), %s",
++                    ex,
++                )
++                raise UpdateFailed(
++                    "Could not refresh Verisure session (transient)"
++                ) from ex
              except VerisureLoginError as ex:
-+                if _is_transient_verisure_failure(ex):
+-                LOGGER.error("Credentials expired for Verisure, %s", ex)
+-                raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
++                if str(ex) == "Failed to read cookie":
++                    try:
++                        await self.hass.async_add_executor_job(self.verisure.login)
++                    except VerisureError as login_ex:
++                        raise ConfigEntryAuthFailed(
++                            "Verisure re-authentication failed after cookie could not be read"
++                        ) from login_ex
++                elif _is_transient_verisure_failure(ex):
 +                    LOGGER.warning(
 +                        "Verisure session refresh failed (transient), %s",
 +                        ex,
@@ -105,11 +164,11 @@ index 6152752..872db33 100644
 +                    raise UpdateFailed(
 +                        "Could not refresh Verisure session (transient)"
 +                    ) from ex
-                 LOGGER.error("Credentials expired for Verisure, %s", ex)
--                raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
-+                raise ConfigEntryAuthFailed(
-+                    "Credentials expired for Verisure"
-+                ) from ex
++                else:
++                    LOGGER.error("Credentials expired for Verisure, %s", ex)
++                    raise ConfigEntryAuthFailed(
++                        "Credentials expired for Verisure"
++                    ) from ex
              except VerisureError as ex:
                  LOGGER.error("Could not log in to verisure, %s", ex)
 -                raise ConfigEntryAuthFailed("Could not log in to verisure") from ex
@@ -119,14 +178,3 @@ index 6152752..872db33 100644
          try:
              overview = await self.hass.async_add_executor_job(
                  self.verisure.request,
-diff --git a/custom_components/verisure/manifest.json b/custom_components/verisure/manifest.json
-index 153b2ba..a8333d0 100644
---- a/custom_components/verisure/manifest.json
-+++ b/custom_components/verisure/manifest.json
-@@ -12,5 +12,5 @@
-   "integration_type": "hub",
-   "iot_class": "cloud_polling",
-   "loggers": ["verisure"],
--  "requirements": ["vsure==2.6.7"]
-+  "requirements": ["vsure @ git+https://github.com/rasmusbe/python-verisure.git@8708843d5c3b6fa66ea2dfa83a8a048a9b2814a9"]
- }

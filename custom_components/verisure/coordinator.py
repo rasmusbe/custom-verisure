@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import timedelta
 from time import sleep
 
@@ -48,6 +49,17 @@ def _is_transient_verisure_failure(exc: BaseException) -> bool:
     return False
 
 
+def _verisure_response_http_status(exc: VerisureResponseError) -> int | None:
+    """Return HTTP status from ResponseError when available."""
+    code = getattr(exc, "status_code", None)
+    if isinstance(code, int):
+        return code
+    match = re.search(r"status code: (\d+)", str(exc))
+    if match:
+        return int(match.group(1))
+    return None
+
+
 class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
     """A Verisure Data Update Coordinator."""
 
@@ -78,15 +90,34 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
         """Login to Verisure."""
         try:
             await self.hass.async_add_executor_job(self.verisure.login_cookie)
+        except VerisureResponseError as ex:
+            status = _verisure_response_http_status(ex)
+            if status in (401, 403):
+                raise ConfigEntryAuthFailed(
+                    "Verisure authentication rejected (invalid or expired session)"
+                ) from ex
+            LOGGER.warning(
+                "Verisure login unavailable (likely transient network or storage), %s",
+                ex,
+            )
+            return False
         except VerisureLoginError as ex:
-            if _is_transient_verisure_failure(ex):
+            if str(ex) == "Failed to read cookie":
+                try:
+                    await self.hass.async_add_executor_job(self.verisure.login)
+                except VerisureError as login_ex:
+                    raise ConfigEntryAuthFailed(
+                        "Verisure re-authentication failed after cookie could not be read"
+                    ) from login_ex
+            elif _is_transient_verisure_failure(ex):
                 LOGGER.warning(
                     "Verisure login unavailable (likely transient network or storage), %s",
                     ex,
                 )
                 return False
-            LOGGER.error("Credentials expired for Verisure, %s", ex)
-            raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
+            else:
+                LOGGER.error("Credentials expired for Verisure, %s", ex)
+                raise ConfigEntryAuthFailed("Credentials expired for Verisure") from ex
         except VerisureError as ex:
             LOGGER.error("Could not log in to verisure, %s", ex)
             return False
@@ -127,8 +158,28 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
             LOGGER.debug("Cookie expired, acquiring new cookies")
             try:
                 await self.hass.async_add_executor_job(self.verisure.login_cookie)
+            except VerisureResponseError as ex:
+                status = _verisure_response_http_status(ex)
+                if status in (401, 403):
+                    raise ConfigEntryAuthFailed(
+                        "Verisure authentication rejected (invalid or expired session)"
+                    ) from ex
+                LOGGER.warning(
+                    "Verisure login unavailable (likely transient network or storage), %s",
+                    ex,
+                )
+                raise UpdateFailed(
+                    "Could not refresh Verisure session (transient)"
+                ) from ex
             except VerisureLoginError as ex:
-                if _is_transient_verisure_failure(ex):
+                if str(ex) == "Failed to read cookie":
+                    try:
+                        await self.hass.async_add_executor_job(self.verisure.login)
+                    except VerisureError as login_ex:
+                        raise ConfigEntryAuthFailed(
+                            "Verisure re-authentication failed after cookie could not be read"
+                        ) from login_ex
+                elif _is_transient_verisure_failure(ex):
                     LOGGER.warning(
                         "Verisure session refresh failed (transient), %s",
                         ex,
@@ -136,10 +187,11 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
                     raise UpdateFailed(
                         "Could not refresh Verisure session (transient)"
                     ) from ex
-                LOGGER.error("Credentials expired for Verisure, %s", ex)
-                raise ConfigEntryAuthFailed(
-                    "Credentials expired for Verisure"
-                ) from ex
+                else:
+                    LOGGER.error("Credentials expired for Verisure, %s", ex)
+                    raise ConfigEntryAuthFailed(
+                        "Credentials expired for Verisure"
+                    ) from ex
             except VerisureError as ex:
                 LOGGER.error("Could not log in to verisure, %s", ex)
                 raise UpdateFailed("Could not log in to verisure") from ex
