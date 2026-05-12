@@ -106,6 +106,18 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
                 try:
                     await self.hass.async_add_executor_job(self.verisure.login)
                 except VerisureError as login_ex:
+                    if isinstance(login_ex, VerisureResponseError):
+                        status = _verisure_response_http_status(login_ex)
+                        if status in (401, 403):
+                            raise ConfigEntryAuthFailed(
+                                "Verisure re-authentication failed after cookie could not be read"
+                            ) from login_ex
+                    if _is_transient_verisure_failure(login_ex):
+                        LOGGER.warning(
+                            "Verisure login unavailable (likely transient network or storage), %s",
+                            login_ex,
+                        )
+                        return False
                     raise ConfigEntryAuthFailed(
                         "Verisure re-authentication failed after cookie could not be read"
                     ) from login_ex
@@ -176,6 +188,20 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
                     try:
                         await self.hass.async_add_executor_job(self.verisure.login)
                     except VerisureError as login_ex:
+                        if isinstance(login_ex, VerisureResponseError):
+                            status = _verisure_response_http_status(login_ex)
+                            if status in (401, 403):
+                                raise ConfigEntryAuthFailed(
+                                    "Verisure re-authentication failed after cookie could not be read"
+                                ) from login_ex
+                        if _is_transient_verisure_failure(login_ex):
+                            LOGGER.warning(
+                                "Verisure login unavailable (likely transient network or storage), %s",
+                                login_ex,
+                            )
+                            raise UpdateFailed(
+                                "Could not refresh Verisure session (transient)"
+                            ) from login_ex
                         raise ConfigEntryAuthFailed(
                             "Verisure re-authentication failed after cookie could not be read"
                         ) from login_ex
