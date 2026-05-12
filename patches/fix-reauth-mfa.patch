@@ -1,0 +1,11 @@
+diff --git a/custom_components/verisure/config_flow.py b/custom_components/verisure/config_flow.py
+--- a/custom_components/verisure/config_flow.py
++++ b/custom_components/verisure/config_flow.py
+@@ -255,7 +255,6 @@
+                 await self.hass.async_add_executor_job(
+                     self.verisure.validate_mfa, user_input[CONF_CODE]
+                 )
+-                await self.hass.async_add_executor_job(self.verisure.login)
+             except VerisureLoginError as ex:
+                 LOGGER.debug("Could not log in to Verisure, %s", ex)
+                 errors["base"] = "invalid_auth"
