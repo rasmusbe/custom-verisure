@@ -1,7 +1,8 @@
 # Sync flow (each run): clone latest homeassistant/core Verisure component,
 # regenerate homeassistant path layout from tracked patches/, git apply all
 # patches, copy into custom_components/verisure, then bump HACS/manifest version
-# and scan interval. Upstream owns unpatched lines; commits only custom_components/.
+# and scan interval. Upstream owns unpatched lines; commits custom_components/ and
+# upstream_snapshot/ (unpatched baseline for change detection).
 name: "Sync Verisure Component Code"
 on:
   workflow_dispatch:
@@ -30,7 +31,7 @@ jobs:
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add custom_components/verisure
+          git add custom_components/verisure upstream_snapshot
           if ! git diff --staged --quiet; then
             git commit -nm "Update Verisure component code"
             git tag -f "${{ env.HOMEASSISTANT_VERSION }}"

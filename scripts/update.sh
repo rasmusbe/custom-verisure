@@ -21,16 +21,13 @@ log() {
 
 ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 TEMP_DIR=$(mktemp -d)
-ORIGINAL_FILES_DIR="$ROOT_DIR/original_files"
+UPSTREAM_SNAPSHOT_DIR="$ROOT_DIR/upstream_snapshot"
 
 # Check if jq is installed
 if ! command -v jq >/dev/null 2>&1; then
   log "Error: jq is required but not installed. Please install it to update JSON files."
   exit 1
 fi
-
-# Ensure original_files directory exists
-mkdir -p "$ORIGINAL_FILES_DIR"
 
 # Clone only the latest commit (--depth 1) to save time and bandwidth
 log "Cloning Home Assistant repository..."
@@ -56,49 +53,35 @@ if [ -n "$GITHUB_ENV" ]; then
   log "Version exported to GitHub Actions environment"
 fi
 
-# Function to store original files
-store_original_files() {
-  log "Storing original unpatched files..."
-  if [ ! -f "$TEMP_DIR/homeassistant/components/verisure/const.py" ] || [ ! -f "$TEMP_DIR/homeassistant/components/verisure/manifest.json" ]; then
-    log "Error: Source files not found in cloned repository"
+# Function to store an unpatched upstream snapshot for the next run's change detection
+store_upstream_snapshot() {
+  local upstream="$TEMP_DIR/homeassistant/components/verisure"
+  log "Storing unpatched upstream snapshot..."
+  if [ ! -d "$upstream" ]; then
+    log "Error: Upstream verisure component not found in cloned repository"
     exit 1
   fi
-  rm -f "$ORIGINAL_FILES_DIR/const.py" "$ORIGINAL_FILES_DIR/manifest.json"
-  cp "$TEMP_DIR/homeassistant/components/verisure/const.py" "$ORIGINAL_FILES_DIR/const.py"
-  cp "$TEMP_DIR/homeassistant/components/verisure/manifest.json" "$ORIGINAL_FILES_DIR/manifest.json"
+  rm -rf "$UPSTREAM_SNAPSHOT_DIR"
+  cp -r "$upstream" "$UPSTREAM_SNAPSHOT_DIR"
 }
 
-# Function to check if component has changed
-check_component_changes() {
-  local has_changes=0
+# Compare unpatched upstream against the last stored snapshot (before applying patches).
+# Returns shell true when upstream changed and an update should run.
+check_upstream_changes() {
+  local upstream="$TEMP_DIR/homeassistant/components/verisure"
 
-  if [ ! -f "$ORIGINAL_FILES_DIR/const.py" ] || [ ! -f "$ORIGINAL_FILES_DIR/manifest.json" ]; then
-    echo "Original files not found. Storing new version..."
-    store_original_files
+  if [ ! -d "$UPSTREAM_SNAPSHOT_DIR" ] || [ -z "$(ls -A "$UPSTREAM_SNAPSHOT_DIR" 2>/dev/null)" ]; then
+    echo "No upstream snapshot found; treating as changed."
     return 0
   fi
 
-  # Create temporary directory for comparison
-  local COMP_DIR
-  COMP_DIR=$(mktemp -d)
-  cp -r "$ROOT_DIR/custom_components/verisure" "$COMP_DIR/"
-
-  # Restore original files for comparison
-  rm -f "$COMP_DIR/verisure/manifest.json" "$COMP_DIR/verisure/const.py"
-  cp "$ORIGINAL_FILES_DIR/const.py" "$COMP_DIR/verisure/const.py"
-  cp "$ORIGINAL_FILES_DIR/manifest.json" "$COMP_DIR/verisure/manifest.json"
-
-  diff -r "$COMP_DIR/verisure" "$TEMP_DIR/homeassistant/components/verisure" >/dev/null 2>&1
-  local diff_result=$?
-  if [ $diff_result -ne 0 ]; then
-    echo "Changes found:"
-    has_changes=1
+  if diff -rq "$UPSTREAM_SNAPSHOT_DIR" "$upstream" >/dev/null 2>&1; then
+    return 1
   fi
 
-  rm -rf "$COMP_DIR"
-  # Return 1 if we have changes, 0 if we don't
-  [ $has_changes -eq 1 ]
-  return $?
+  echo "Upstream verisure component differs from last snapshot:"
+  diff -rq "$UPSTREAM_SNAPSHOT_DIR" "$upstream" || true
+  return 0
 }
 
 # Apply patches from patches directory (regenerates path layout first — not tracked in git)
@@ -132,13 +115,10 @@ apply_patches() {
   cd "$ROOT_DIR"
 }
 
-# Apply patches to the upstream component before comparison
-apply_patches
-
-# Check if component exists and if there are changes
+# Detect upstream changes before patches (patched vs unpatched comparison was a false positive)
 if [ -d "$ROOT_DIR/custom_components/verisure" ]; then
   echo "Checking for upstream changes..."
-  if check_component_changes; then
+  if check_upstream_changes; then
     echo "Changes detected in upstream component. Updating..."
   else
     echo "No changes detected in upstream component. Skipping update."
@@ -147,8 +127,9 @@ if [ -d "$ROOT_DIR/custom_components/verisure" ]; then
   fi
 fi
 
-# Store original files before any modifications
-store_original_files
+store_upstream_snapshot
+
+apply_patches
 
 # Remove the verisure component if it exists
 rm -rf "$ROOT_DIR/custom_components/verisure"
