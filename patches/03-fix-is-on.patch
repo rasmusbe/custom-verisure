@@ -1,8 +1,7 @@
-diff --git forkSrcPrefix/custom_components/verisure/binary_sensor.py forkDstPrefix/custom_components/verisure/binary_sensor.py
-index 4d9221c3ca97c1e4fcc3a00bd0dbdebe0a642c50..783102de42d48e6e3c34e7cd6af3042a238f8d3e 100644
---- forkSrcPrefix/custom_components/verisure/binary_sensor.py
-+++ forkDstPrefix/custom_components/verisure/binary_sensor.py
-@@ -120,9 +120,25 @@ class VerisureEthernetStatus(
+diff --git a/custom_components/verisure/binary_sensor.py b/custom_components/verisure/binary_sensor.py
+--- a/custom_components/verisure/binary_sensor.py
++++ b/custom_components/verisure/binary_sensor.py
+@@ -119,9 +119,25 @@ class VerisureEthernetStatus(
      @property
      def is_on(self) -> bool:
          """Return the state of the sensor."""
@@ -23,7 +22,7 @@ index 4d9221c3ca97c1e4fcc3a00bd0dbdebe0a642c50..783102de42d48e6e3c34e7cd6af3042a
 +            return broadband_data.get("isBroadbandConnected", False)
 +
 +        return False
-
+ 
      @property
      def available(self) -> bool:
          """Return True if entity is available."""

@@ -1,9 +1,8 @@
 diff --git a/custom_components/verisure/coordinator.py b/custom_components/verisure/coordinator.py
 --- a/custom_components/verisure/coordinator.py
 +++ b/custom_components/verisure/coordinator.py
-@@ -2,12 +2,18 @@
- 
- from __future__ import annotations
+@@ -1,11 +1,17 @@
+ """DataUpdateCoordinator for the Verisure integration."""
  
 +import asyncio
 +import re
@@ -20,12 +19,9 @@ diff --git a/custom_components/verisure/coordinator.py b/custom_components/veris
      Session as Verisure,
  )
  
-@@ -21,9 +27,52 @@
+@@ -21,7 +27,50 @@
  
- from .const import CONF_GIID, DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER
- 
--type VerisureConfigEntry = ConfigEntry[VerisureDataUpdateCoordinator]
-+type VerisureConfigEntry = ConfigEntry["VerisureDataUpdateCoordinator"]
+ type VerisureConfigEntry = ConfigEntry[VerisureDataUpdateCoordinator]
  
 +_COOKIE_REFRESH_ATTEMPTS = 3
 +_RETRY_DELAY_SEC = 1.0
@@ -74,7 +70,7 @@ diff --git a/custom_components/verisure/coordinator.py b/custom_components/veris
  class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
      """A Verisure Data Update Coordinator."""
  
-@@ -54,9 +103,46 @@
+@@ -52,9 +101,46 @@
          """Login to Verisure."""
          try:
              await self.hass.async_add_executor_job(self.verisure.login_cookie)
@@ -123,7 +119,7 @@ diff --git a/custom_components/verisure/coordinator.py b/custom_components/veris
          except VerisureError as ex:
              LOGGER.error("Could not log in to verisure, %s", ex)
              return False
-@@ -69,20 +155,85 @@
+@@ -67,20 +153,85 @@
  
      async def _async_update_data(self) -> dict:
          """Fetch data from Verisure."""
@@ -217,14 +213,3 @@ diff --git a/custom_components/verisure/coordinator.py b/custom_components/veris
          try:
              overview = await self.hass.async_add_executor_job(
                  self.verisure.request,
-
-diff --git a/custom_components/verisure/manifest.json b/custom_components/verisure/manifest.json
---- a/custom_components/verisure/manifest.json
-+++ b/custom_components/verisure/manifest.json
-@@ -12,5 +12,5 @@
-   "integration_type": "hub",
-   "iot_class": "cloud_polling",
-   "loggers": ["verisure"],
--  "requirements": ["vsure==2.6.7"]
-+  "requirements": ["vsure==2.6.9"]
- }
