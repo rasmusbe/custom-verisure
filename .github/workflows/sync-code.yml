@@ -34,20 +34,29 @@ jobs:
           git add custom_components/verisure upstream_snapshot
           if ! git diff --staged --quiet; then
             git commit -nm "Update Verisure component code"
-            git tag -f "${{ env.HOMEASSISTANT_VERSION }}"
-            git push -f origin main --tags
+            git push origin main
             echo "changes_made=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No changes to the verisure component code on this run; exiting."
+            echo "No changes to the verisure component code on this run."
             echo "changes_made=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Ensure version tag
+        run: |
+          git tag -f "${{ env.HOMEASSISTANT_VERSION }}"
+          git push -f origin "refs/tags/${{ env.HOMEASSISTANT_VERSION }}"
+
       - name: Create Github Release
-        if: steps.commit.outputs.changes_made == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "${{ env.HOMEASSISTANT_VERSION }}" &>/dev/null; then
-            gh release delete "${{ env.HOMEASSISTANT_VERSION }}" --yes
+          VERSION="${{ env.HOMEASSISTANT_VERSION }}"
+          if gh release view "$VERSION" &>/dev/null; then
+            if [ "${{ steps.commit.outputs.changes_made }}" = "true" ]; then
+              gh release delete "$VERSION" --yes
+            else
+              echo "Release $VERSION already exists; skipping."
+              exit 0
+            fi
           fi
-          gh release create "${{ env.HOMEASSISTANT_VERSION }}" --latest --generate-notes --title "${{ env.HOMEASSISTANT_VERSION }}"
+          gh release create "$VERSION" --latest --generate-notes --title "$VERSION"
