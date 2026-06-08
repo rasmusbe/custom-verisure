@@ -41,18 +41,27 @@ jobs:
             echo "changes_made=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Ensure version tag
-        run: |
-          git tag -f "${{ env.HOMEASSISTANT_VERSION }}"
-          git push -f origin "refs/tags/${{ env.HOMEASSISTANT_VERSION }}"
-
-      - name: Create Github Release
+      - name: Ensure version tag and release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ env.HOMEASSISTANT_VERSION }}"
+          VERSION=$(jq -r .version custom_components/verisure/manifest.json)
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "No manifest version; skipping tag and release."
+            exit 0
+          fi
+
+          CHANGES="${{ steps.commit.outputs.changes_made }}"
+          if [ "$CHANGES" = "false" ] && gh release view "$VERSION" &>/dev/null; then
+            echo "No component changes and release $VERSION already exists; skipping."
+            exit 0
+          fi
+
+          git tag -f "$VERSION"
+          git push -f origin "refs/tags/$VERSION"
+
           if gh release view "$VERSION" &>/dev/null; then
-            if [ "${{ steps.commit.outputs.changes_made }}" = "true" ]; then
+            if [ "$CHANGES" = "true" ]; then
               gh release delete "$VERSION" --yes
             else
               echo "Release $VERSION already exists; skipping."

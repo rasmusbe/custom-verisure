@@ -43,15 +43,8 @@ if ! VERSION=$(grep -E "^(MAJOR|MINOR|PATCH)_VERSION" "$TEMP_DIR/homeassistant/c
   exit 1
 fi
 
-# Export the version to global environment
 export HOMEASSISTANT_VERSION=$VERSION
 log "Detected Home Assistant version: $VERSION"
-
-# Export the version to GitHub Actions environment if GITHUB_ENV is set
-if [ -n "$GITHUB_ENV" ]; then
-  echo "HOMEASSISTANT_VERSION=$HOMEASSISTANT_VERSION" >>"$GITHUB_ENV"
-  log "Version exported to GitHub Actions environment"
-fi
 
 # Function to store an unpatched upstream snapshot for the next run's change detection
 store_upstream_snapshot() {
@@ -169,3 +162,8 @@ if [ -f "$MANIFEST_FILE" ]; then
 fi
 
 log "Update completed successfully"
+
+if [ -n "$GITHUB_ENV" ]; then
+  echo "HOMEASSISTANT_VERSION=$HOMEASSISTANT_VERSION" >>"$GITHUB_ENV"
+  log "Version exported to GitHub Actions environment"
+fi
