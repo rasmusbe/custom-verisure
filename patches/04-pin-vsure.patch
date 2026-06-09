@@ -1,10 +1,12 @@
 diff --git a/custom_components/verisure/manifest.json b/custom_components/verisure/manifest.json
 --- a/custom_components/verisure/manifest.json
 +++ b/custom_components/verisure/manifest.json
-@@ -12,5 +12,5 @@
+@@ -12,5 +12,7 @@
    "integration_type": "hub",
    "iot_class": "cloud_polling",
    "loggers": ["verisure"],
 -  "requirements": ["vsure==2.6.7"]
-+  "requirements": ["vsure==2.6.9"]
++  "requirements": [
++    "vsure @ git+https://github.com/rasmusbe/python-verisure.git@fix-mfa-single-login-and-stepup-rate-limit"
++  ]
  }
