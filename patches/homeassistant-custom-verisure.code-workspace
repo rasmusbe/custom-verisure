@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../../opensource/python-verisure"
+		},
+		{
+			"path": "../../../opensource/homeassistant-core"
+		}
+	],
+	"settings": {}
+}

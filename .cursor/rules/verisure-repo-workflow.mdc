@@ -18,3 +18,14 @@ CI (`.github/workflows/sync-code.yml`) runs `./scripts/update.sh` and commits **
 
 - **Lasting divergences from upstream**: implement via **`patches/`** (then run `./scripts/update.sh` locally to verify), not only by editing `custom_components/` (the next sync can overwrite unpatched files).
 - **Ephemeral edits** under `custom_components/` without a matching patch are fragile.
+
+## Scope of this fork
+
+`main` should match **core `master` + merged [#171317](https://github.com/home-assistant/core/pull/171317) + merged vsure 2.7.1**, implemented via patches until those land upstream.
+
+**Intentional ongoing divergences:**
+
+- `02-custom-scan-interval.patch` — shorter poll interval
+- `04-pin-vsure.patch` — vsure from `python-verisure` branch `fix-mfa-single-login-and-stepup-rate-limit` until PyPI release
+
+Regenerate `01-session-resilience-and-cleanup.patch` when the HA PR branch changes. Do not document this fork’s patch plan in homeassistant-core or python-verisure.
