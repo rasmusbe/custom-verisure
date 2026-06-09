@@ -4,9 +4,9 @@ diff --git a/custom_components/verisure/const.py b/custom_components/verisure/co
 @@ -13,7 +13,7 @@
  CONF_LOCK_CODE_DIGITS = "lock_code_digits"
  CONF_LOCK_DEFAULT_CODE = "lock_default_code"
-
+ 
 -DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)
 +DEFAULT_SCAN_INTERVAL = timedelta(seconds=15)
  DEFAULT_LOCK_CODE_DIGITS = 4
-
- SERVICE_CAPTURE_SMARTCAM = "capture_smartcam"
+ 
+ # vsure cookies are valid for ~15 minutes; refresh before expiry.
