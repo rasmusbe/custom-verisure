@@ -15,7 +15,7 @@
     "verisure"
   ],
   "requirements": [
-    "vsure @ git+https://github.com/rasmusbe/python-verisure.git@fix-mfa-single-login-and-stepup-rate-limit"
+    "vsure==2.7.1"
   ],
-  "version": "2026.6.1"
+  "version": "2026.6.2"
 }

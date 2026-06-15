@@ -46,6 +46,66 @@ fi
 export HOMEASSISTANT_VERSION=$VERSION
 log "Detected Home Assistant version: $VERSION"
 
+MIN_VSURE_VERSION="2.7.1"
+
+# Returns shell true when $1 >= $2 (semver).
+version_ge() {
+  [ "$(printf '%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]
+}
+
+# Returns shell true when upstream master has the Verisure session work we wait for.
+check_upstream_readiness() {
+  local upstream="$TEMP_DIR/homeassistant/components/verisure"
+  local manifest="$upstream/manifest.json"
+  local coordinator="$upstream/coordinator.py"
+
+  if [ ! -f "$manifest" ] || [ ! -f "$coordinator" ]; then
+    log "Upstream Verisure component incomplete; not ready for sync."
+    return 1
+  fi
+
+  local vsure_req
+  vsure_req=$(jq -r '.requirements[] | select(startswith("vsure"))' "$manifest")
+  if [ -z "$vsure_req" ] || [ "$vsure_req" = "null" ]; then
+    log "Upstream manifest has no vsure requirement; not ready for sync."
+    return 1
+  fi
+
+  local vsure_version
+  vsure_version=$(echo "$vsure_req" | sed -n 's/.*==\([0-9.]*\).*/\1/p')
+  if [ -z "$vsure_version" ]; then
+    log "Could not parse vsure version from: $vsure_req"
+    return 1
+  fi
+
+  if ! version_ge "$vsure_version" "$MIN_VSURE_VERSION"; then
+    log "Upstream pins vsure $vsure_version (need >= $MIN_VSURE_VERSION); not ready for sync."
+    return 1
+  fi
+
+  if ! grep -q 'COOKIE_REFRESH_INTERVAL' "$coordinator" ||
+    ! grep -q '_raise_rate_limited' "$coordinator"; then
+    log "Upstream coordinator missing session-refresh behavior; not ready for sync."
+    return 1
+  fi
+
+  return 0
+}
+
+skip_sync_upstream_not_ready() {
+  log "Skipping sync: homeassistant/core master does not yet include required Verisure changes (expected in 2026.7.0)."
+  if [ -n "$GITHUB_ENV" ]; then
+    echo "VERISURE_SYNC_SKIPPED=true" >>"$GITHUB_ENV"
+  fi
+  rm -rf "$TEMP_DIR"
+  TEMP_DIR=""
+  exit 0
+}
+
+if ! check_upstream_readiness; then
+  skip_sync_upstream_not_ready
+fi
+
 # Function to store an unpatched upstream snapshot for the next run's change detection
 store_upstream_snapshot() {
   local upstream="$TEMP_DIR/homeassistant/components/verisure"

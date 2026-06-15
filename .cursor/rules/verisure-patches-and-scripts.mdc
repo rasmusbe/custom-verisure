@@ -13,21 +13,25 @@ alwaysApply: false
 
 ## Patch order
 
-- Patch files are **`NN-name.patch`** (two-digit prefix, e.g. `01-…`, `02-…`). `update.sh` and `regenerate_patch.sh` apply/process patches in **lexicographic filename order**, so the number defines a stable sequence when patches depend on each other or touch overlapping regions.
+- Patch files are **`NN-name.patch`** (two-digit prefix, e.g. `02-…`). `update.sh` and `regenerate_patch.sh` apply/process patches in **lexicographic filename order**, so the number defines a stable sequence when patches depend on each other or touch overlapping regions.
 - New patches: pick the next free number; renumber only when you need to change apply order.
 
-## Current patches (preview of upstream merges)
+## Current patches
 
 | Patch | Purpose | Drop when |
 |-------|---------|-----------|
-| `01-session-resilience-and-cleanup` | Mirrors homeassistant-core `verisure-session-resilience-and-cleanup` vs `master` | [#171317](https://github.com/home-assistant/core/pull/171317) merged |
 | `02-custom-scan-interval` | Tighter poll interval (local only) | Never (intentional) |
-| `03-fix-is-on` | Broadband `is_on` list/dict guard | Equivalent fix on `master` |
-| `04-pin-vsure` | vsure git branch for pre-release testing | vsure 2.7.1+ on PyPI and pinned in core |
 
-**Maintenance:** When HA PR or vsure changes, regenerate `01` from  
-`git diff upstream/master...verisure-session-resilience-and-cleanup -- homeassistant/components/verisure/`  
-(path-rewrite to `custom_components/verisure/`). Keep this table **in this repo only**.
+## Upstream readiness gate
+
+`update.sh` clones **`home-assistant/core`** branch **`master`** and **skips the sync** (exit 0) until upstream includes:
+
+- `vsure` pinned to at least **2.7.1** in `manifest.json`
+- Session-refresh / rate-limit behavior in `coordinator.py` (`COOKIE_REFRESH_INTERVAL`, `_raise_rate_limited`)
+
+While the gate fails, `custom_components/verisure` and `upstream_snapshot/` are left unchanged. CI sets `VERISURE_SYNC_SKIPPED=true` and skips commit/tag/release steps.
+
+Temporary upstream-preview patches (session resilience, broadband guard, vsure pin) are **not** tracked here; the fork ships the last synced component until `master` catches up (expected **2026.7.0**).
 
 ## After changing `patches/*.patch`
 

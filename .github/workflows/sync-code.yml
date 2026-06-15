@@ -1,7 +1,8 @@
 # Sync flow (each run): clone latest homeassistant/core Verisure component,
+# skip cleanly if master lacks required session/vsure changes, otherwise
 # regenerate homeassistant path layout from tracked patches/, git apply all
-# patches, copy into custom_components/verisure, then bump HACS/manifest version
-# and scan interval. Upstream owns unpatched lines; commits custom_components/ and
+# patches, copy into custom_components/verisure, then bump HACS/manifest version.
+# Upstream owns unpatched lines; commits custom_components/ and
 # upstream_snapshot/ (unpatched baseline for change detection).
 name: "Sync Verisure Component Code"
 on:
@@ -23,10 +24,17 @@ jobs:
         name: Checkout repository
 
       - name: Update Verisure Component Code
+        id: update
         run: |
           ./scripts/update.sh
+          if [ "${VERISURE_SYNC_SKIPPED:-false}" = "true" ]; then
+            echo "sync_skipped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sync_skipped=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Commit new changes
+        if: steps.update.outputs.sync_skipped != 'true'
         id: commit
         run: |
           git config user.name github-actions
@@ -42,6 +50,7 @@ jobs:
           fi
 
       - name: Ensure version tag and release
+        if: steps.update.outputs.sync_skipped != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

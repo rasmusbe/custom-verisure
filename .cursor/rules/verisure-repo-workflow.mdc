@@ -10,22 +10,25 @@ This repository ships Home Assistant’s core **Verisure** integration as a **cu
 ## Pipeline
 
 1. **Tracked patches** live in `patches/` (diff paths use `custom_components/verisure/`).
-2. `./scripts/update.sh` rewrites paths into **`regenerated_patches/`** (gitignored), applies those patches onto a shallow clone of [home-assistant/core](https://github.com/home-assistant/core), copies `homeassistant/components/verisure` → `custom_components/verisure/`, and updates `hacs.json` and `manifest.json`. Run `./scripts/regenerate_patch.sh` alone only if you want the regenerated files without a full sync.
+2. `./scripts/update.sh` clones **`master`**, checks an **upstream readiness gate** (vsure ≥ 2.7.1 + session-resilience markers on upstream), then rewrites paths into **`regenerated_patches/`** (gitignored), applies patches, copies `homeassistant/components/verisure` → `custom_components/verisure/`, and updates `hacs.json` and `manifest.json`. Run `./scripts/regenerate_patch.sh` alone only if you want the regenerated files without a full sync.
 
 CI (`.github/workflows/sync-code.yml`) runs `./scripts/update.sh` and commits **`custom_components/verisure` only**. Commit **`patches/`** changes in PRs when you intend to change durable behavior (`regenerated_patches/` is not versioned).
+
+## Upstream sync gate
+
+While HA **`master`** is behind **`dev`** on Verisure (session MFA resilience, vsure 2.7.1 — expected **2026.7.0**), `update.sh` **exits cleanly without syncing**. The fork keeps serving the current `custom_components/verisure` tree. No temporary upstream-preview patches are maintained in `patches/`.
+
+When `master` passes the gate, the next sync copies upstream Verisure and applies only intentional fork divergences.
 
 ## Editing guidance
 
 - **Lasting divergences from upstream**: implement via **`patches/`** (then run `./scripts/update.sh` locally to verify), not only by editing `custom_components/` (the next sync can overwrite unpatched files).
-- **Ephemeral edits** under `custom_components/` without a matching patch are fragile.
+- **Ephemeral edits** under `custom_components/` without a matching patch are fragile while the sync gate is active.
 
 ## Scope of this fork
-
-`main` should match **core `master` + merged [#171317](https://github.com/home-assistant/core/pull/171317) + merged vsure 2.7.1**, implemented via patches until those land upstream.
 
 **Intentional ongoing divergences:**
 
 - `02-custom-scan-interval.patch` — shorter poll interval
-- `04-pin-vsure.patch` — vsure from `python-verisure` branch `fix-mfa-single-login-and-stepup-rate-limit` until PyPI release
 
-Regenerate `01-session-resilience-and-cleanup.patch` when the HA PR branch changes. Do not document this fork’s patch plan in homeassistant-core or python-verisure.
+Do not document this fork’s patch plan in homeassistant-core or python-verisure.
