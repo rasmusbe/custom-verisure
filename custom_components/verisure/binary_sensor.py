@@ -1,6 +1,6 @@
 """Support for Verisure binary sensors."""
 
-from typing import Any
+from typing import Any, override
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -53,6 +53,7 @@ class VerisureDoorWindowSensor(
         self.serial_number = serial_number
 
     @property
+    @override
     def device_info(self) -> DeviceInfo:
         """Return device information about this entity."""
         area = self.coordinator.data["door_window"][self.serial_number]["area"]
@@ -66,6 +67,7 @@ class VerisureDoorWindowSensor(
         )
 
     @property
+    @override
     def is_on(self) -> bool:
         """Return the state of the sensor."""
         return (
@@ -73,6 +75,7 @@ class VerisureDoorWindowSensor(
         )
 
     @property
+    @override
     def available(self) -> bool:
         """Return True if entity is available."""
         return (
@@ -81,6 +84,7 @@ class VerisureDoorWindowSensor(
         )
 
     @property
+    @override
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes of the sensor."""
         return {
@@ -101,11 +105,13 @@ class VerisureEthernetStatus(
     _attr_translation_key = "ethernet"
 
     @property
+    @override
     def unique_id(self) -> str:
         """Return the unique ID for this entity."""
         return f"{self.coordinator.config_entry.data[CONF_GIID]}_ethernet"
 
     @property
+    @override
     def device_info(self) -> DeviceInfo:
         """Return device information about this entity."""
         return DeviceInfo(
@@ -117,27 +123,13 @@ class VerisureEthernetStatus(
         )
 
     @property
+    @override
     def is_on(self) -> bool:
         """Return the state of the sensor."""
-        broadband_data = self.coordinator.data.get("broadband")
-        if not broadband_data:
-            return False
-
-        # Handle case where broadband_data is a list
-        if isinstance(broadband_data, list):
-            # If it's a list, try to get the first item
-            if broadband_data and isinstance(broadband_data[0], dict):
-                return broadband_data[0].get("isBroadbandConnected", False)
-            return False
-
-        # Handle case where broadband_data is a dictionary
-        if isinstance(broadband_data, dict):
-            return broadband_data.get("isBroadbandConnected", False)
-
-        return False
+        return self.coordinator.data["broadband"]["isBroadbandConnected"]
 
     @property
+    @override
     def available(self) -> bool:
         """Return True if entity is available."""
-        broadband_data = self.coordinator.data.get("broadband")
-        return super().available and broadband_data is not None
+        return super().available and self.coordinator.data["broadband"] is not None

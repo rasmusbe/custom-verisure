@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 from time import sleep
+from typing import override
 
 from verisure import (
     AuthenticationError as VerisureAuthenticationError,
@@ -125,9 +126,7 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
             self._rate_limit_backoff_level += 1
         return retry_after
 
-    def _raise_rate_limited(
-        self, exc: VerisureRateLimitError, context: str
-    ) -> None:
+    def _raise_rate_limited(self, exc: VerisureRateLimitError, context: str) -> None:
         """Log rate limiting and defer the next poll."""
         retry_after = self._rate_limit_retry_seconds()
         LOGGER.warning(
@@ -213,6 +212,7 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
 
         return True
 
+    @override
     async def _async_update_data(self) -> dict:
         """Fetch data from Verisure."""
         await self._async_refresh_cookie_if_needed()
