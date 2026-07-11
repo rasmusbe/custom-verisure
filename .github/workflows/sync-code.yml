@@ -1,7 +1,8 @@
 # Sync flow (each run): clone latest homeassistant/core Verisure component,
 # skip cleanly if master lacks required session/vsure changes, otherwise
 # regenerate homeassistant path layout from tracked patches/, git apply all
-# patches, copy into custom_components/verisure, then bump HACS/manifest version.
+# patches, copy into custom_components/verisure, then bump HACS/manifest version
+# when the component actually changed.
 # Upstream owns unpatched lines; commits custom_components/ and
 # upstream_snapshot/ (unpatched baseline for change detection).
 # Manifest versions use stable HA release numbers (no beta suffix); GitHub
@@ -43,11 +44,7 @@ jobs:
           git config user.email github-actions@github.com
           git add custom_components/verisure upstream_snapshot hacs.json
           if ! git diff --staged --quiet; then
-            if [ "${VERISURE_UPDATE_MODE:-full}" = "version_only" ]; then
-              git commit -nm "Normalize component version metadata"
-            else
-              git commit -nm "Update Verisure component code"
-            fi
+            git commit -nm "Update Verisure component code"
             git push origin main
             echo "changes_made=true" >> "$GITHUB_OUTPUT"
           else

@@ -170,58 +170,11 @@ apply_patches() {
   cd "$ROOT_DIR"
 }
 
-manifest_needs_version_update() {
-  local manifest_file="$ROOT_DIR/custom_components/verisure/manifest.json"
-  local current_version normalized_current
-
-  if [ ! -f "$manifest_file" ]; then
-    return 1
-  fi
-
-  current_version=$(jq -r .version "$manifest_file")
-  normalized_current=$(normalize_release_version "$current_version")
-
-  if [ "$current_version" != "$normalized_current" ]; then
-    log "Manifest has prerelease version $current_version; will normalize to $normalized_current."
-    return 0
-  fi
-
-  if [ "$HA_IS_STABLE" = true ] && [ "$(printf '%s\n' "$current_version" "$HA_RELEASE_VERSION" | sort -V | tail -n1)" = "$HA_RELEASE_VERSION" ] && [ "$current_version" != "$HA_RELEASE_VERSION" ]; then
-    log "Home Assistant stable release advanced to $HA_RELEASE_VERSION (manifest: $current_version)."
-    return 0
-  fi
-
-  return 1
-}
-
-run_version_only_update() {
-  local target_version=$1
-
-  log "Updating version metadata only to $target_version..."
-  update_version_files "$ROOT_DIR" "$target_version"
-
-  if [ -n "$GITHUB_ENV" ]; then
-    echo "VERISURE_UPDATE_MODE=version_only" >>"$GITHUB_ENV"
-  fi
-
-  rm -rf "$TEMP_DIR"
-  TEMP_DIR=""
-  log "Version-only update completed successfully"
-  exit 0
-}
-
 # Detect upstream changes before patches (patched vs unpatched comparison was a false positive)
 if [ -d "$ROOT_DIR/custom_components/verisure" ]; then
   echo "Checking for upstream changes..."
   if check_upstream_changes; then
     echo "Changes detected in upstream component. Updating..."
-  elif manifest_needs_version_update; then
-    current_version=$(jq -r .version "$ROOT_DIR/custom_components/verisure/manifest.json")
-    target_version=$(normalize_release_version "$current_version")
-    if [ "$HA_IS_STABLE" = true ]; then
-      target_version="$HA_RELEASE_VERSION"
-    fi
-    run_version_only_update "$target_version"
   else
     echo "No changes detected in upstream component. Skipping update."
     rm -rf "$TEMP_DIR"
@@ -246,7 +199,3 @@ log "Updating version metadata to $HA_RELEASE_VERSION..."
 update_version_files "$ROOT_DIR" "$HA_RELEASE_VERSION"
 
 log "Update completed successfully"
-
-if [ -n "$GITHUB_ENV" ]; then
-  echo "VERISURE_UPDATE_MODE=full" >>"$GITHUB_ENV"
-fi
