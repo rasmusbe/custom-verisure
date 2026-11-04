@@ -1,8 +1,14 @@
 {
   "domain": "verisure",
   "name": "Verisure",
+  "categories": [
+    "security_safety.alarm_systems"
+  ],
   "codeowners": [],
   "config_flow": true,
+  "connectivity": [
+    "cloud"
+  ],
   "dhcp": [
     {
       "macaddress": "0023C1*"
@@ -17,5 +23,5 @@
   "requirements": [
     "vsure==2.10.0"
   ],
-  "version": "2026.10.0"
+  "version": "2026.11.0"
 }
