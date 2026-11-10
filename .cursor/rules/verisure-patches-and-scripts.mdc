@@ -21,7 +21,13 @@ alwaysApply: false
 | Patch | Purpose | Drop when |
 |-------|---------|-----------|
 | `02-custom-scan-interval` | Tighter poll interval (local only) | Never (intentional) |
-| `03-partial-response-guard` | Partial overview responses no longer crash entity listeners (sent upstream) | When core `master` includes the fix (patch stops applying) |
+| `03-partial-response-guard` | Partial overview responses no longer crash entity listeners (merged in core `dev`, expected in 2026.12.0) | When core `master` includes the fix (the sync opens an issue) |
+
+## Patches that land upstream
+
+`update.sh` checks each patch with `git apply --check`. When a patch does not apply but `git apply --reverse --check` passes, upstream already contains exactly that change: the script skips the patch, logs a warning and sets `VERISURE_UPSTREAMED_PATCHES` in CI. The workflow then opens one issue per such patch (`Patch NN-name is in upstream, remove it`), unless an open issue with that title exists. The sync continues as normal.
+
+A patch that applies neither forward nor in reverse still fails the sync: upstream changed the same code differently and the patch needs manual work.
 
 ## Upstream readiness gate
 

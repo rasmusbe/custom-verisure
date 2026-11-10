@@ -158,16 +158,28 @@ apply_patches() {
   PATCH_DIR="$ROOT_DIR/regenerated_patches"
   log "Using regenerated patches from $PATCH_DIR"
 
+  local upstreamed=()
   for patch in "$PATCH_DIR"/*.patch; do
     if [ -f "$patch" ]; then
       log "Applying patch: $patch"
-      if ! git apply "$patch"; then
+      if git apply --check "$patch" 2>/dev/null; then
+        git apply "$patch"
+      elif git apply --reverse --check "$patch" 2>/dev/null; then
+        # Upstream already contains exactly this change: skip it and flag it for removal.
+        log "Warning: $(basename "$patch") is already in upstream; skipping. Remove it from patches/."
+        upstreamed+=("$(basename "$patch" .patch)")
+      else
+        git apply --check "$patch" || true
         log "Error: Failed to apply patch $patch"
         exit 1
       fi
     fi
   done
   cd "$ROOT_DIR"
+
+  if [ ${#upstreamed[@]} -gt 0 ] && [ -n "$GITHUB_ENV" ]; then
+    echo "VERISURE_UPSTREAMED_PATCHES=${upstreamed[*]}" >>"$GITHUB_ENV"
+  fi
 }
 
 # Detect upstream changes before patches (patched vs unpatched comparison was a false positive)

@@ -21,6 +21,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +52,31 @@ jobs:
             echo "No changes to the verisure component code on this run."
             echo "changes_made=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Open issues for patches already in upstream
+        if: env.VERISURE_UPSTREAMED_PATCHES != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for patch in $VERISURE_UPSTREAMED_PATCHES; do
+            TITLE="Patch $patch is in upstream, remove it"
+            if gh issue list --state open --search "\"$TITLE\" in:title" --json title \
+              --jq '.[].title' | grep -Fxq "$TITLE"; then
+              echo "Issue already open: $TITLE"
+              continue
+            fi
+            gh issue create --title "$TITLE" --body "$(printf '%s\n' \
+              "\`patches/$patch.patch\` no longer applies to home-assistant/core \`master\`, but applies in reverse: upstream contains the same change." \
+              "" \
+              "The sync skipped the patch, so \`custom_components/verisure\` already matches upstream for it." \
+              "" \
+              "To close this issue:" \
+              "" \
+              "- Delete \`patches/$patch.patch\`." \
+              "- Remove its row from \`.cursor/rules/verisure-patches-and-scripts.mdc\`." \
+              "" \
+              "Detected by workflow run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.")"
+          done
 
       - name: Ensure version tag and release
         if: steps.update.outputs.sync_skipped != 'true'
