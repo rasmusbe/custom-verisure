@@ -21,6 +21,7 @@ alwaysApply: false
 | Patch | Purpose | Drop when |
 |-------|---------|-----------|
 | `02-custom-scan-interval` | Tighter poll interval (local only) | Never (intentional) |
+| `03-partial-response-guard` | Partial overview responses no longer crash entity listeners (sent upstream) | When core `master` includes the fix (patch stops applying) |
 
 ## Upstream readiness gate
 

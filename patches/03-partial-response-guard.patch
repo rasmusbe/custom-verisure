@@ -1,0 +1,123 @@
+diff --git a/custom_components/verisure/alarm_control_panel.py b/custom_components/verisure/alarm_control_panel.py
+index bdabe2b50c..dec5a8b528 100644
+--- a/custom_components/verisure/alarm_control_panel.py
++++ b/custom_components/verisure/alarm_control_panel.py
+@@ -127,12 +127,18 @@ class VerisureAlarm(
+             "ARMED_AWAY", self.coordinator.verisure.arm_away(code)
+         )
+ 
++    @property
++    @override
++    def available(self) -> bool:
++        """Return True if entity is available."""
++        return super().available and self.coordinator.data["alarm"] is not None
++
+     def _update_alarm_attributes(self) -> None:
+         """Update alarm state and changed by from coordinator data."""
+-        self._attr_alarm_state = ALARM_STATE_TO_HA.get(
+-            self.coordinator.data["alarm"]["statusType"]
+-        )
+-        self._attr_changed_by = self.coordinator.data["alarm"].get("name")
++        if (alarm := self.coordinator.data["alarm"]) is None:
++            return
++        self._attr_alarm_state = ALARM_STATE_TO_HA.get(alarm["statusType"])
++        self._attr_changed_by = alarm.get("name")
+ 
+     @callback
+     @override
+diff --git a/custom_components/verisure/binary_sensor.py b/custom_components/verisure/binary_sensor.py
+index 34d4af7b9a..151767a0ef 100644
+--- a/custom_components/verisure/binary_sensor.py
++++ b/custom_components/verisure/binary_sensor.py
+@@ -132,4 +132,9 @@ class VerisureEthernetStatus(
+     @override
+     def available(self) -> bool:
+         """Return True if entity is available."""
+-        return super().available and self.coordinator.data["broadband"] is not None
++        broadband = self.coordinator.data["broadband"]
++        return (
++            super().available
++            and isinstance(broadband, dict)
++            and "isBroadbandConnected" in broadband
++        )
+diff --git a/custom_components/verisure/coordinator.py b/custom_components/verisure/coordinator.py
+index e34bffb1f8..a094ea3f47 100644
+--- a/custom_components/verisure/coordinator.py
++++ b/custom_components/verisure/coordinator.py
+@@ -2,7 +2,7 @@
+ 
+ from datetime import datetime, timedelta
+ from time import sleep
+-from typing import override
++from typing import Any, override
+ 
+ from verisure import (
+     AuthenticationError as VerisureAuthenticationError,
+@@ -223,16 +223,17 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator[dict]):
+         except VerisureError as err:
+             raise UpdateFailed(f"Could not read overview: {err}") from err
+ 
+-        def unpack(overview: list, value: str) -> dict | list:
+-            unpacked: dict | list | None = next(
++        def unpack(overview: list, value: str) -> Any:
++            """Return a field from the batched response, or None if it is missing."""
++            return next(
+                 (
+-                    item["data"]["installation"][value]
++                    installation[value]
+                     for item in overview
+-                    if value in item.get("data", {}).get("installation", {})
++                    if (installation := (item.get("data") or {}).get("installation"))
++                    and value in installation
+                 ),
+                 None,
+             )
+-            return unpacked or []
+ 
+         # Store data in a way Home Assistant can easily consume it
+         self._overview = overview
+@@ -242,23 +243,23 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator[dict]):
+             "broadband": unpack(overview, "broadband"),
+             "cameras": {
+                 device["device"]["deviceLabel"]: device
+-                for device in unpack(overview, "cameras")
++                for device in unpack(overview, "cameras") or []
+             },
+             "climate": {
+                 device["device"]["deviceLabel"]: device
+-                for device in unpack(overview, "climates")
++                for device in unpack(overview, "climates") or []
+             },
+             "door_window": {
+                 device["device"]["deviceLabel"]: device
+-                for device in unpack(overview, "doorWindows")
++                for device in unpack(overview, "doorWindows") or []
+             },
+             "locks": {
+                 device["device"]["deviceLabel"]: device
+-                for device in unpack(overview, "smartLocks")
++                for device in unpack(overview, "smartLocks") or []
+             },
+             "smart_plugs": {
+                 device["device"]["deviceLabel"]: device
+-                for device in unpack(overview, "smartplugs")
++                for device in unpack(overview, "smartplugs") or []
+             },
+         }
+ 
+diff --git a/custom_components/verisure/lock.py b/custom_components/verisure/lock.py
+index 2cfa2aea9e..191104c774 100644
+--- a/custom_components/verisure/lock.py
++++ b/custom_components/verisure/lock.py
+@@ -168,7 +168,10 @@ class VerisureDoorlock(CoordinatorEntity[VerisureDataUpdateCoordinator], LockEnt
+ 
+     def _update_lock_attributes(self) -> None:
+         """Update lock state, changed by, and method from coordinator data."""
+-        lock_data = self.coordinator.data["locks"][self.serial_number]
++        if (
++            lock_data := self.coordinator.data["locks"].get(self.serial_number)
++        ) is None:
++            return
+         self._attr_is_locked = lock_data["lockStatus"] == "LOCKED"
+         self._attr_changed_by = lock_data.get("user", {}).get("name")
+         self._changed_method = lock_data["lockMethod"]
