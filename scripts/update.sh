@@ -159,22 +159,27 @@ apply_patches() {
   log "Using regenerated patches from $PATCH_DIR"
 
   local upstreamed=()
+  local apply_err
+  apply_err=$(mktemp)
   for patch in "$PATCH_DIR"/*.patch; do
     if [ -f "$patch" ]; then
       log "Applying patch: $patch"
-      if git apply --check "$patch" 2>/dev/null; then
-        git apply "$patch"
+      # git apply is all-or-nothing, so a failed apply leaves the tree untouched.
+      if git apply "$patch" 2>"$apply_err"; then
+        :
       elif git apply --reverse --check "$patch" 2>/dev/null; then
         # Upstream already contains exactly this change: skip it and flag it for removal.
         log "Warning: $(basename "$patch") is already in upstream; skipping. Remove it from patches/."
         upstreamed+=("$(basename "$patch" .patch)")
       else
-        git apply --check "$patch" || true
+        cat "$apply_err" >&2
+        rm -f "$apply_err"
         log "Error: Failed to apply patch $patch"
         exit 1
       fi
     fi
   done
+  rm -f "$apply_err"
   cd "$ROOT_DIR"
 
   if [ ${#upstreamed[@]} -gt 0 ] && [ -n "$GITHUB_ENV" ]; then
