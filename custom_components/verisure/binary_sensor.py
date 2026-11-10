@@ -132,9 +132,4 @@ class VerisureEthernetStatus(
     @override
     def available(self) -> bool:
         """Return True if entity is available."""
-        broadband = self.coordinator.data["broadband"]
-        return (
-            super().available
-            and isinstance(broadband, dict)
-            and "isBroadbandConnected" in broadband
-        )
+        return super().available and self.coordinator.data["broadband"] is not None

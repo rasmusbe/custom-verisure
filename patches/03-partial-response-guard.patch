@@ -25,41 +25,17 @@ index bdabe2b50c..dec5a8b528 100644
  
      @callback
      @override
-diff --git a/custom_components/verisure/binary_sensor.py b/custom_components/verisure/binary_sensor.py
-index 34d4af7b9a..151767a0ef 100644
---- a/custom_components/verisure/binary_sensor.py
-+++ b/custom_components/verisure/binary_sensor.py
-@@ -132,4 +132,9 @@ class VerisureEthernetStatus(
-     @override
-     def available(self) -> bool:
-         """Return True if entity is available."""
--        return super().available and self.coordinator.data["broadband"] is not None
-+        broadband = self.coordinator.data["broadband"]
-+        return (
-+            super().available
-+            and isinstance(broadband, dict)
-+            and "isBroadbandConnected" in broadband
-+        )
 diff --git a/custom_components/verisure/coordinator.py b/custom_components/verisure/coordinator.py
-index e34bffb1f8..a094ea3f47 100644
+index e34bffb1f8..0888b70b9c 100644
 --- a/custom_components/verisure/coordinator.py
 +++ b/custom_components/verisure/coordinator.py
-@@ -2,7 +2,7 @@
- 
- from datetime import datetime, timedelta
- from time import sleep
--from typing import override
-+from typing import Any, override
- 
- from verisure import (
-     AuthenticationError as VerisureAuthenticationError,
 @@ -223,16 +223,17 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator[dict]):
          except VerisureError as err:
              raise UpdateFailed(f"Could not read overview: {err}") from err
  
 -        def unpack(overview: list, value: str) -> dict | list:
 -            unpacked: dict | list | None = next(
-+        def unpack(overview: list, value: str) -> Any:
++        def unpack(overview: list, value: str) -> dict | list | None:
 +            """Return a field from the batched response, or None if it is missing."""
 +            return next(
                  (

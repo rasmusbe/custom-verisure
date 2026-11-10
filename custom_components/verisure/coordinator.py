@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Any, override
+from typing import override
 
 from verisure import (
     AuthenticationError as VerisureAuthenticationError,
@@ -223,7 +223,7 @@ class VerisureDataUpdateCoordinator(DataUpdateCoordinator):
         except VerisureError as err:
             raise UpdateFailed(f"Could not read overview: {err}") from err
 
-        def unpack(overview: list, value: str) -> Any:
+        def unpack(overview: list, value: str) -> dict | list | None:
             """Return a field from the batched response, or None if it is missing."""
             return next(
                 (
